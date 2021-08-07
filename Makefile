@@ -1,5 +1,5 @@
 CC = g++
-CCFLAGS = -std=c++11
+CCFLAGS = -std=c++11 -O3 -fopenmp
 
 main : SLIC.cpp SLIC.h
 	$(CC) $(CCFLAGS) -o SLIC $<

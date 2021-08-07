@@ -166,6 +166,7 @@ void SLIC::DoRGBtoLABConversion(
 	avec = new double[sz];
 	bvec = new double[sz];
 
+	#pragma omp parallel for
 	for( int j = 0; j < sz; j++ )
 	{
 		int r = (ubuff[j] >> 16) & 0xFF;
@@ -190,6 +191,7 @@ void SLIC::DetectLabEdges(
 	int sz = width*height;
 
 	edges.resize(sz,0);
+	#pragma omp parallel for
 	for( int j = 1; j < height-1; j++ )
 	{
 		for( int k = 1; k < width-1; k++ )
