@@ -391,7 +391,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 
 		distvec.assign(sz, DBL_MAX);
 		distidx.assign(sz, -1);
-		#pragma omp parallel for
+		#pragma omp parallel for schedule(dynamic)
 		for( int n = 0; n < numk; n++ )
 		{
 			int y1 = max(0,			(int)(kseedsy[n]-offset));
