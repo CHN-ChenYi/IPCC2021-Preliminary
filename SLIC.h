@@ -25,6 +25,8 @@
 #define _SLIC_H_INCLUDED_
 
 
+#include <omp.h>
+
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -163,6 +165,8 @@ private:
 	double**								m_lvecvec;
 	double**								m_avecvec;
 	double**								m_bvecvec;
+
+	omp_lock_t*								lock;
 };
 
 #endif // !defined(_SLIC_H_INCLUDED_)

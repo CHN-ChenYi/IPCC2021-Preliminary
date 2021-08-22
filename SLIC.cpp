@@ -29,6 +29,8 @@
 #include "SLIC.h"
 #include <chrono>
 
+#include <omp.h>
+
 typedef chrono::high_resolution_clock Clock;
 
 // For superpixels
@@ -62,6 +64,7 @@ SLIC::~SLIC()
 	if(m_lvec) delete [] m_lvec;
 	if(m_avec) delete [] m_avec;
 	if(m_bvec) delete [] m_bvec;
+	if(lock) delete [] lock;
 
 
 	if(m_lvecvec)
@@ -356,6 +359,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 	if(STEP < 10) offset = STEP*1.5;
 	//----------------
 
+
 	vector<double> sigmal(numk, 0);
 	vector<double> sigmaa(numk, 0);
 	vector<double> sigmab(numk, 0);
@@ -366,10 +370,17 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 	vector<double> distxy(sz, DBL_MAX);
 	vector<double> distlab(sz, DBL_MAX);
 	vector<double> distvec(sz, DBL_MAX);
+	vector<int> distidx(sz, -1);
 	vector<double> maxlab(numk, 10*10);//THIS IS THE VARIABLE VALUE OF M, just start with 10
 	vector<double> maxxy(numk, STEP*STEP);//THIS IS THE VARIABLE VALUE OF M, just start with 10
 
 	double invxywt = 1.0/(STEP*STEP);//NOTE: this is different from how usual SLIC/LKM works
+
+	#pragma omp parallel for
+	for (int i = 0; i < sz; ++i)
+		omp_init_lock(lock + i);
+
+
 
 	while( numitr < NUMITR )
 	{
@@ -379,6 +390,8 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		//------
 
 		distvec.assign(sz, DBL_MAX);
+		distidx.assign(sz, -1);
+		#pragma omp parallel for
 		for( int n = 0; n < numk; n++ )
 		{
 			int y1 = max(0,			(int)(kseedsy[n]-offset));
@@ -391,29 +404,38 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 				for( int x = x1; x < x2; x++ )
 				{
 					int i = y*m_width + x;
+					omp_set_lock(lock + i);
 					//_ASSERT( y < m_height && x < m_width && y >= 0 && x >= 0 );
 
 					double l = m_lvec[i];
 					double a = m_avec[i];
 					double b = m_bvec[i];
 
-					distlab[i] =	(l - kseedsl[n])*(l - kseedsl[n]) +
-									(a - kseedsa[n])*(a - kseedsa[n]) +
-									(b - kseedsb[n])*(b - kseedsb[n]);
+					double _distlab =	(l - kseedsl[n])*(l - kseedsl[n]) +
+										(a - kseedsa[n])*(a - kseedsa[n]) +
+										(b - kseedsb[n])*(b - kseedsb[n]);
 
-					distxy[i] =		(x - kseedsx[n])*(x - kseedsx[n]) +
-									(y - kseedsy[n])*(y - kseedsy[n]);
+					double _distxy =	(x - kseedsx[n])*(x - kseedsx[n]) +
+										(y - kseedsy[n])*(y - kseedsy[n]);
 
 					//------------------------------------------------------------------------
-					double dist = distlab[i]/maxlab[n] + distxy[i]*invxywt;//only varying m, prettier superpixels
+					double dist = _distlab/maxlab[n] + _distxy*invxywt;//only varying m, prettier superpixels
 					//double dist = distlab[i]/maxlab[n] + distxy[i]/maxxy[n];//varying both m and S
 					//------------------------------------------------------------------------
 					
+					if (n > distidx[i]) {
+						distidx[i] = n;
+						distlab[i] = _distlab;
+						distxy[i] = _distxy;
+					}
+
+					// #pragma omp critical(distvec)
 					if( dist < distvec[i] )
 					{
 						distvec[i] = dist;
 						klabels[i]  = n;
 					}
+					omp_unset_lock(lock + i);
 				}
 			}
 		}
@@ -425,7 +447,9 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 			maxlab.assign(numk,1);
 			maxxy.assign(numk,1);
 		}
-		{for( int i = 0; i < sz; i++ )
+		{
+		// #pragma omp parallel for
+		for( int i = 0; i < sz; i++ )
 		{
 			if(maxlab[klabels[i]] < distlab[i]) maxlab[klabels[i]] = distlab[i];
 			if(maxxy[klabels[i]] < distxy[i]) maxxy[klabels[i]] = distxy[i];
@@ -440,6 +464,8 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		sigmay.assign(numk, 0);
 		clustersize.assign(numk, 0);
 
+		
+		// #pragma omp parallel for
 		for( int j = 0; j < sz; j++ )
 		{
 			int temp = klabels[j];
@@ -453,14 +479,20 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 			clustersize[klabels[j]]++;
 		}
 
-		{for( int k = 0; k < numk; k++ )
+		#pragma omp parallel
+		{
+		#pragma omp parallel for
+		for( int k = 0; k < numk; k++ )
 		{
 			//_ASSERT(clustersize[k] > 0);
 			if( clustersize[k] <= 0 ) clustersize[k] = 1;
 			inv[k] = 1.0/double(clustersize[k]);//computing inverse now to multiply, than divide later
 		}}
 		
-		{for( int k = 0; k < numk; k++ )
+		#pragma omp parallel
+		{
+		#pragma omp parallel for
+		for( int k = 0; k < numk; k++ )
 		{
 			kseedsl[k] = sigmal[k]*inv[k];
 			kseedsa[k] = sigmaa[k]*inv[k];
@@ -469,6 +501,10 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 			kseedsy[k] = sigmay[k]*inv[k];
 		}}
 	}
+
+	#pragma omp parallel for
+	for (int i = 0; i < sz; ++i)
+		omp_destroy_lock(lock + i);
 }
 
 //===========================================================================
@@ -644,6 +680,7 @@ void SLIC::PerformSLICO_ForGivenK(
 	//if(0 == klabels) klabels = new int[sz];
 	for( int s = 0; s < sz; s++ ) klabels[s] = -1;
 	//--------------------------------------------------
+	lock = new omp_lock_t[sz];
 	if(1)//LAB
 	{
 		DoRGBtoLABConversion(ubuff, m_lvec, m_avec, m_bvec);
