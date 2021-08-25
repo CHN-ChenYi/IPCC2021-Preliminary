@@ -21,7 +21,9 @@
 // Email: firstname.lastname@epfl.ch
 //===========================================================================
 
-#include <stdio.h>
+#include <iostream>
+#include <cstdio>
+#include <cstring>
 #include <cfloat>
 #include <cmath>
 #include <iostream>
@@ -64,7 +66,9 @@ SLIC::~SLIC()
 	if(m_lvec) delete [] m_lvec;
 	if(m_avec) delete [] m_avec;
 	if(m_bvec) delete [] m_bvec;
+#ifdef LOCK
 	if(lock) delete [] lock;
+#endif
 
 
 	if(m_lvecvec)
@@ -370,18 +374,55 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 	vector<double> distxy(sz, DBL_MAX);
 	vector<double> distlab(sz, DBL_MAX);
 	vector<double> distvec(sz, DBL_MAX);
-	vector<int> distidx(sz, -1);
 	vector<double> maxlab(numk, 10*10);//THIS IS THE VARIABLE VALUE OF M, just start with 10
 	vector<double> maxxy(numk, STEP*STEP);//THIS IS THE VARIABLE VALUE OF M, just start with 10
 
 	double invxywt = 1.0/(STEP*STEP);//NOTE: this is different from how usual SLIC/LKM works
 
+	// vector<int> distidx(sz, -1);
+	// vector<double> _maxlab[OMP_NUM_THREADS];
+	// vector<double> _maxxy[OMP_NUM_THREADS];
+	// vector<double> _sigmal[OMP_NUM_THREADS];
+	// vector<double> _sigmaa[OMP_NUM_THREADS];
+	// vector<double> _sigmab[OMP_NUM_THREADS];
+	// vector<double> _sigmax[OMP_NUM_THREADS];
+	// vector<double> _sigmay[OMP_NUM_THREADS];
+	// vector<int> _clustersize[OMP_NUM_THREADS];
+	int *distidx = new int[sz];
+	double *_maxlab[OMP_NUM_THREADS];
+	double *_maxxy[OMP_NUM_THREADS];
+	double *_sigmal[OMP_NUM_THREADS];
+	double *_sigmaa[OMP_NUM_THREADS];
+	double *_sigmab[OMP_NUM_THREADS];
+	double *_sigmax[OMP_NUM_THREADS];
+	double *_sigmay[OMP_NUM_THREADS];
+	int *_clustersize[OMP_NUM_THREADS];
+
+	// memset(distidx, 0, sizeof(int) * sz);
+	#pragma omp parallel for
+	for (int i = 0; i < OMP_NUM_THREADS; ++i) {
+		_maxlab[i] = new double[numk];
+		_maxxy[i] = new double[numk];
+		_sigmal[i] = new double[numk];
+		_sigmaa[i] = new double[numk];
+		_sigmab[i] = new double[numk];
+		_sigmax[i] = new double[numk];
+		_sigmay[i] = new double[numk];
+		_clustersize[i] = new int[numk];
+	}
+
+#ifdef LOCK
 	#pragma omp parallel for
 	for (int i = 0; i < sz; ++i)
 		omp_init_lock(lock + i);
+#endif
 
-
-
+#ifdef PROF
+	auto cost1 = 0LL;
+	auto cost2 = 0LL;
+	auto cost3 = 0LL;
+	long long ccnt = 0;
+#endif
 	while( numitr < NUMITR )
 	{
 		//------
@@ -389,8 +430,117 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		numitr++;
 		//------
 
-		distvec.assign(sz, DBL_MAX);
-		distidx.assign(sz, -1);
+#ifdef PROF
+		auto startTime = Clock::now();
+#endif
+		#pragma omp parallel for
+		for (int i = 0; i < sz; ++i) {
+			distvec[i] = DBL_MAX;
+			// distidx[i] = -1;
+		}
+		// distvec.assign(sz, DBL_MAX);
+		// distidx.assign(sz, -1);
+/*
+		for( int n = 0; n < numk; n++ )
+		{
+			int y1 = max(0,			(int)(kseedsy[n]-offset));
+			int y2 = min(m_height,	(int)(kseedsy[n]+offset));
+			int x1 = max(0,			(int)(kseedsx[n]-offset));
+			int x2 = min(m_width,	(int)(kseedsx[n]+offset));
+
+			int ds = (y2 - y1) * (x2 - x1);
+#ifdef PROF
+			ccnt += ds;
+			// printf("ds[%d] = %d\n", n, ds);
+#endif
+
+			#pragma omp parallel for
+			for (int d = 0; d < ds; ++d) {
+				int dy = d / (x2 - x1);
+				int dx = d % (x2 - x1);
+				int y = y1 + dy;
+				int x = x1 + dx;
+				int i = y*m_width + x;
+				//_ASSERT( y < m_height && x < m_width && y >= 0 && x >= 0 );
+
+				double l = m_lvec[i];
+				double a = m_avec[i];
+				double b = m_bvec[i];
+
+				distlab[i] =	(l - kseedsl[n])*(l - kseedsl[n]) +
+									(a - kseedsa[n])*(a - kseedsa[n]) +
+									(b - kseedsb[n])*(b - kseedsb[n]);
+
+				distxy[i] =	(x - kseedsx[n])*(x - kseedsx[n]) +
+									(y - kseedsy[n])*(y - kseedsy[n]);
+
+				//------------------------------------------------------------------------
+				double dist = distlab[i]/maxlab[n] + distxy[i]*invxywt;//only varying m, prettier superpixels
+				//double dist = distlab[i]/maxlab[n] + distxy[i]/maxxy[n];//varying both m and S
+				//------------------------------------------------------------------------
+				
+
+				if( dist < distvec[i] )
+				{
+					distvec[i] = dist;
+					klabels[i]  = n;
+				}
+			}
+		}
+*/
+
+
+		#pragma omp parallel for
+		for( int n = 0; n < numk; n++ )
+		{
+			int y1 = max(0,			(int)(kseedsy[n]-offset));
+			int y2 = min(m_height,	(int)(kseedsy[n]+offset));
+			int x1 = max(0,			(int)(kseedsx[n]-offset));
+			int x2 = min(m_width,	(int)(kseedsx[n]+offset));
+
+			for( int y = y1; y < y2; y++ )
+			{
+				for( int x = x1; x < x2; x++ )
+				{
+					int i = y*m_width + x;
+					//_ASSERT( y < m_height && x < m_width && y >= 0 && x >= 0 );
+
+					double l = m_lvec[i];
+					double a = m_avec[i];
+					double b = m_bvec[i];
+
+					double _distlab =	(l - kseedsl[n])*(l - kseedsl[n]) +
+										(a - kseedsa[n])*(a - kseedsa[n]) +
+										(b - kseedsb[n])*(b - kseedsb[n]);
+
+					double _distxy =	(x - kseedsx[n])*(x - kseedsx[n]) +
+										(y - kseedsy[n])*(y - kseedsy[n]);
+
+					//------------------------------------------------------------------------
+					double dist = _distlab/maxlab[n] + _distxy*invxywt;//only varying m, prettier superpixels
+					//double dist = distlab[i]/maxlab[n] + distxy[i]/maxxy[n];//varying both m and S
+					//------------------------------------------------------------------------
+
+					distlab[i] = _distlab;
+					distxy[i] = _distxy;
+					
+					if( dist < distvec[i] )
+					{
+						distvec[i] = dist;
+						klabels[i]  = n;
+					}
+				}
+			}
+		}
+
+
+#ifdef LOCK
+		// locker
+		#pragma omp parallel for
+		for (int i = 0; i < sz; ++i) {
+			distidx[i] = -1;
+		}
+		// distidx.assign(sz, -1);
 		#pragma omp parallel for schedule(dynamic)
 		for( int n = 0; n < numk; n++ )
 		{
@@ -405,7 +555,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 				{
 					int i = y*m_width + x;
 					omp_set_lock(lock + i);
-					//_ASSERT( y < m_height && x < m_width && y >= 0 && x >= 0 );
+					// _ASSERT( y < m_height && x < m_width && y >= 0 && x >= 0 );
 
 					double l = m_lvec[i];
 					double a = m_avec[i];
@@ -429,7 +579,6 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 						distxy[i] = _distxy;
 					}
 
-					// #pragma omp critical(distvec)
 					if( dist < distvec[i] )
 					{
 						distvec[i] = dist;
@@ -439,24 +588,64 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 				}
 			}
 		}
+#endif
+
+#ifdef PROF
+    	auto endTime = Clock::now();
+    	auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+		
+   		cost1 += compTime.count();
+#endif
 		//-----------------------------------------------------------------
 		// Assign the max color distance for a cluster
 		//-----------------------------------------------------------------
-		if(0 == numitr)
+		if(0 == numitr)	// I think it won't be executed
 		{
 			maxlab.assign(numk,1);
 			maxxy.assign(numk,1);
 		}
+#ifdef PROF
+		startTime = Clock::now();
+#endif
 		{
 		// #pragma omp parallel for
-		for( int i = 0; i < sz; i++ )
-		{
-			if(maxlab[klabels[i]] < distlab[i]) maxlab[klabels[i]] = distlab[i];
-			if(maxxy[klabels[i]] < distxy[i]) maxxy[klabels[i]] = distxy[i];
-		}}
+		// for( int i = 0; i < sz; i++ )
+		// {
+		// 	if(maxlab[klabels[i]] < distlab[i]) maxlab[klabels[i]] = distlab[i];
+		// 	if(maxxy[klabels[i]] < distxy[i]) maxxy[klabels[i]] = distxy[i];
+		// }
+		#pragma omp parallel for
+		for (int i = 0; i < OMP_NUM_THREADS; ++i) {
+			memset(_maxlab[i], 0, sizeof(double) * numk);
+			memset(_maxxy[i], 0, sizeof(double) * numk);
+			// _maxlab[i].assign(numk, 0);
+			// _maxxy[i].assign(numk, 0);
+		}
+		#pragma omp parallel for
+		for( int i = 0; i < sz; i++ ) {
+			int idx = omp_get_thread_num();
+			if(_maxlab[idx][klabels[i]] < distlab[i]) _maxlab[idx][klabels[i]] = distlab[i];
+			if(_maxxy[idx][klabels[i]] < distxy[i]) _maxxy[idx][klabels[i]] = distxy[i];
+		}
+		#pragma omp parallel for
+		for (int i = 0; i < numk; ++i)
+			for (int j = 0; j < OMP_NUM_THREADS; ++j) {
+				if(maxlab[i] < _maxlab[j][i]) maxlab[i] = _maxlab[j][i];
+				if(maxxy[i] < _maxxy[j][i]) maxxy[i] = _maxxy[j][i];
+			}
+		}
+#ifdef PROF
+    	endTime = Clock::now();
+    	compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+		
+   		cost2 += compTime.count();
+#endif
 		//-----------------------------------------------------------------
 		// Recalculate the centroid and store in the seed values
 		//-----------------------------------------------------------------
+#ifdef PROF
+		startTime = Clock::now();
+#endif
 		sigmal.assign(numk, 0);
 		sigmaa.assign(numk, 0);
 		sigmab.assign(numk, 0);
@@ -465,19 +654,62 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		clustersize.assign(numk, 0);
 
 		
-		// #pragma omp parallel for
-		for( int j = 0; j < sz; j++ )
-		{
-			int temp = klabels[j];
-			//_ASSERT(klabels[j] >= 0);
-			sigmal[klabels[j]] += m_lvec[j];
-			sigmaa[klabels[j]] += m_avec[j];
-			sigmab[klabels[j]] += m_bvec[j];
-			sigmax[klabels[j]] += (j%m_width);
-			sigmay[klabels[j]] += (j/m_width);
-
-			clustersize[klabels[j]]++;
+		#pragma omp parallel for
+		for (int i = 0; i < OMP_NUM_THREADS; ++i) {
+			// _sigmal[i].assign(numk, 0);
+			// _sigmaa[i].assign(numk, 0);
+			// _sigmab[i].assign(numk, 0);
+			// _sigmax[i].assign(numk, 0);
+			// _sigmay[i].assign(numk, 0);
+			// _clustersize[i].assign(numk, 0);
+			memset(_sigmal[i], 0, sizeof(double) * numk);
+			memset(_sigmaa[i], 0, sizeof(double) * numk);
+			memset(_sigmab[i], 0, sizeof(double) * numk);
+			memset(_sigmax[i], 0, sizeof(double) * numk);
+			memset(_sigmay[i], 0, sizeof(double) * numk);
+			memset(_clustersize[i], 0, sizeof(int) * numk);
 		}
+		#pragma omp parallel for
+		for (int j = 0; j < sz; ++j) {
+			int idx = omp_get_thread_num();
+			_sigmal[idx][klabels[j]] += m_lvec[j];
+			_sigmaa[idx][klabels[j]] += m_avec[j];
+			_sigmab[idx][klabels[j]] += m_bvec[j];
+			_sigmax[idx][klabels[j]] += (j%m_width);
+			_sigmay[idx][klabels[j]] += (j/m_width);
+
+			_clustersize[idx][klabels[j]]++;
+		}
+		#pragma omp parallel for
+		for (int i = 0; i < numk; ++i)
+			for (int j = 0; j < OMP_NUM_THREADS; ++j) {
+				sigmal[i] += _sigmal[j][i];
+				sigmaa[i] += _sigmaa[j][i];
+				sigmab[i] += _sigmab[j][i];
+				sigmax[i] += _sigmax[j][i];
+				sigmay[i] += _sigmay[j][i];
+				clustersize[i] += _clustersize[j][i];
+			}
+
+		// // #pragma omp parallel for
+		// for( int j = 0; j < sz; j++ )
+		// {
+		// 	int temp = klabels[j];
+		// 	//_ASSERT(klabels[j] >= 0);
+		// 	sigmal[klabels[j]] += m_lvec[j];
+		// 	sigmaa[klabels[j]] += m_avec[j];
+		// 	sigmab[klabels[j]] += m_bvec[j];
+		// 	sigmax[klabels[j]] += (j%m_width);
+		// 	sigmay[klabels[j]] += (j/m_width);
+
+		// 	clustersize[klabels[j]]++;
+		// }
+#ifdef PROF
+    	endTime = Clock::now();
+    	compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+		
+   		cost3 += compTime.count();
+#endif
 
 		#pragma omp parallel
 		{
@@ -502,9 +734,33 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		}}
 	}
 
+#ifdef PROF
+    cout << "Part1 time=" << cost1/1000 << " ms" << endl;
+    cout << "Part2 time=" << cost2/1000 << " ms" << endl;
+    cout << "Part3 time=" << cost3/1000 << " ms" << endl;
+	printf("sz = %d\n", sz);
+	printf("ccnt = %lld\n", ccnt);
+#endif
+
+#ifdef LOCK
 	#pragma omp parallel for
 	for (int i = 0; i < sz; ++i)
 		omp_destroy_lock(lock + i);
+#endif
+
+
+	delete [] distidx;
+	#pragma omp parallel for
+	for (int i = 0; i < OMP_NUM_THREADS; ++i) {
+		delete [] _maxlab[i];
+		delete [] _maxxy[i];
+		delete [] _sigmal[i];
+		delete [] _sigmaa[i];
+		delete [] _sigmab[i];
+		delete [] _sigmax[i];
+		delete [] _sigmay[i];
+		delete [] _clustersize[i];
+	}
 }
 
 //===========================================================================
@@ -680,7 +936,9 @@ void SLIC::PerformSLICO_ForGivenK(
 	//if(0 == klabels) klabels = new int[sz];
 	for( int s = 0; s < sz; s++ ) klabels[s] = -1;
 	//--------------------------------------------------
+#ifdef LOCK
 	lock = new omp_lock_t[sz];
+#endif
 	if(1)//LAB
 	{
 		DoRGBtoLABConversion(ubuff, m_lvec, m_avec, m_bvec);
@@ -702,9 +960,14 @@ void SLIC::PerformSLICO_ForGivenK(
 	if(perturbseeds) DetectLabEdges(m_lvec, m_avec, m_bvec, m_width, m_height, edgemag);
 	GetLABXYSeeds_ForGivenK(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, K, perturbseeds, edgemag);
 
+    auto startTime = Clock::now();
 	int STEP = sqrt(double(sz)/double(K)) + 2.0;//adding a small value in the even the STEP size is too small.
 	PerformSuperpixelSegmentation_VariableSandM(kseedsl,kseedsa,kseedsb,kseedsx,kseedsy,klabels,STEP,10);
 	numlabels = kseedsl.size();
+    auto endTime = Clock::now();
+    auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+    cout <<  "PerformSuperpixelSegmentation_VariableSandM time=" << compTime.count()/1000 << " ms" << endl;
+
 
 	int* nlabels = new int[sz];
 	EnforceLabelConnectivity(klabels, m_width, m_height, nlabels, numlabels, K);

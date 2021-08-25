@@ -32,6 +32,8 @@
 #include <algorithm>
 using namespace std;
 
+#define REDUCE_NUM_THREADS 64
+#define OMP_NUM_THREADS 64
 
 class SLIC  
 {
@@ -166,7 +168,9 @@ private:
 	double**								m_avecvec;
 	double**								m_bvecvec;
 
+#ifdef LOCK
 	omp_lock_t*								lock;
+#endif
 };
 
 #endif // !defined(_SLIC_H_INCLUDED_)
