@@ -31,4 +31,4 @@ There are 0 points' labels are different from original file.
 
 ​	我把PerformSuperpixelSegmentation_VariableSandM函数分为Part1，Part2，Part3三部分。
 
-​	Part2和Part3我加了OMP的Reduce快了很多，但是Part1加了OMP后效果不是很明显，从原先的3000+ms到360ms左右。Part计算部分有点奇怪，还需想一想怎么进一步优化。
+​	Part2和Part3我加了OMP的Reduce快了很多，但是Part1加了OMP后（现在的是不用线程锁的，用线程锁的版本被ifdef了）效果不是很明显，从原先的3000+ms到360ms左右。Part计算部分有点奇怪，还需想一想怎么进一步优化。
