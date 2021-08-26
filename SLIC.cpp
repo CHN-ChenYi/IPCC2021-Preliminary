@@ -490,7 +490,6 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 */
 
 
-		#pragma omp parallel for
 		for( int n = 0; n < numk; n++ )
 		{
 			int y1 = max(0,			(int)(kseedsy[n]-offset));
@@ -498,6 +497,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 			int x1 = max(0,			(int)(kseedsx[n]-offset));
 			int x2 = min(m_width,	(int)(kseedsx[n]+offset));
 
+			#pragma omp parallel for
 			for( int y = y1; y < y2; y++ )
 			{
 				for( int x = x1; x < x2; x++ )
