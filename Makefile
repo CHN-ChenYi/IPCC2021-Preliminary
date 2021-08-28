@@ -7,6 +7,12 @@ main : SLIC.cpp SLIC.h
 prof : SLIC.cpp SLIC.h
 	$(CC) $(CCFLAGS) -DPROF -o SLIC $<
 
+prof-lock : SLIC.cpp SLIC.h
+	$(CC) $(CCFLAGS) -DPROF -DLOCK -o SLIC $<
+
+gprof : SLIC.cpp SLIC.h
+	$(CC) $(CCFLAGS) -pg -o SLIC $<
+
 run :
 	srun -p amd_256 -N 1 ./SLIC
 

@@ -492,32 +492,37 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 
 		for( int n = 0; n < numk; n++ )
 		{
-			int y1 = max(0,			(int)(kseedsy[n]-offset));
-			int y2 = min(m_height,	(int)(kseedsy[n]+offset));
-			int x1 = max(0,			(int)(kseedsx[n]-offset));
-			int x2 = min(m_width,	(int)(kseedsx[n]+offset));
+			const double _kseedsl = kseedsl[n];
+			const double _kseedsa = kseedsa[n];
+			const double _kseedsb = kseedsb[n];
+			const double _kseedsx = kseedsx[n];
+			const double _kseedsy = kseedsy[n];
+			const int y1 = max(0,			(int)(_kseedsy-offset));
+			const int y2 = min(m_height,	(int)(_kseedsy+offset));
+			const int x1 = max(0,			(int)(_kseedsx-offset));
+			const int x2 = min(m_width,	(int)(_kseedsx+offset));
 
 			#pragma omp parallel for
 			for( int y = y1; y < y2; y++ )
 			{
 				for( int x = x1; x < x2; x++ )
 				{
-					int i = y*m_width + x;
+					const int i = y*m_width + x;
 					//_ASSERT( y < m_height && x < m_width && y >= 0 && x >= 0 );
 
-					double l = m_lvec[i];
-					double a = m_avec[i];
-					double b = m_bvec[i];
+					const double l = m_lvec[i];
+					const double a = m_avec[i];
+					const double b = m_bvec[i];
 
-					double _distlab =	(l - kseedsl[n])*(l - kseedsl[n]) +
-										(a - kseedsa[n])*(a - kseedsa[n]) +
-										(b - kseedsb[n])*(b - kseedsb[n]);
+					const double _distlab =	(l - _kseedsl)*(l - _kseedsl) +
+											(a - _kseedsa)*(a - _kseedsa) +
+											(b - _kseedsb)*(b - _kseedsb);
 
-					double _distxy =	(x - kseedsx[n])*(x - kseedsx[n]) +
-										(y - kseedsy[n])*(y - kseedsy[n]);
+					const double _distxy =	(x - _kseedsx)*(x - _kseedsx) +
+											(y - _kseedsy)*(y - _kseedsy);
 
 					//------------------------------------------------------------------------
-					double dist = _distlab/maxlab[n] + _distxy*invxywt;//only varying m, prettier superpixels
+					const double dist = _distlab/maxlab[n] + _distxy*invxywt;//only varying m, prettier superpixels
 					//double dist = distlab[i]/maxlab[n] + distxy[i]/maxxy[n];//varying both m and S
 					//------------------------------------------------------------------------
 
@@ -599,11 +604,11 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		//-----------------------------------------------------------------
 		// Assign the max color distance for a cluster
 		//-----------------------------------------------------------------
-		if(0 == numitr)	// I think it won't be executed
-		{
-			maxlab.assign(numk,1);
-			maxxy.assign(numk,1);
-		}
+		// if(0 == numitr)	// I think it won't be executed
+		// {
+		// 	maxlab.assign(numk,1);
+		// 	maxxy.assign(numk,1);
+		// }
 #ifdef PROF
 		startTime = Clock::now();
 #endif
@@ -739,6 +744,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
     cout << "Part2 time=" << cost2/1000 << " ms" << endl;
     cout << "Part3 time=" << cost3/1000 << " ms" << endl;
 	printf("sz = %d\n", sz);
+	printf("numk = %d\n", numk);
 	printf("ccnt = %lld\n", ccnt);
 #endif
 
@@ -1102,7 +1108,7 @@ int main (int argc, char **argv)
 	SLIC slic;
 	int m_spcount;
 	double m_compactness;
-	m_spcount = 200;
+	m_spcount = 400;
 	m_compactness = 10.0;
     auto startTime = Clock::now();
 	slic.PerformSLICO_ForGivenK(img, width, height, labels, numlabels, m_spcount, m_compactness);//for a given number K of superpixels
