@@ -18,7 +18,7 @@ gprof : SLIC.cpp SLIC.h
 	$(CC) $(CCFLAGS) -pg -o SLIC $<
 
 run :
-	sbatch script.sh
+	sbatch script.slurm --export=CASE=$(CASE)
 	squeue
 
 clean :
