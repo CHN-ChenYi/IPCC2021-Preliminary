@@ -835,7 +835,8 @@ void SLIC::EnforceLabelConnectivity(
 	const int sz = width*height;
 	const int SUPSZ = sz/K;
 	//nlabels.resize(sz, -1);
-	for( int i = 0; i < sz; i++ ) nlabels[i] = -1;
+	memset(nlabels, -1, sizeof(int) * sz);
+	// for( int i = 0; i < sz; i++ ) nlabels[i] = -1;
 	int label(0);
 	int* xvec = new int[sz];
 	int* yvec = new int[sz];
@@ -940,7 +941,8 @@ void SLIC::PerformSLICO_ForGivenK(
 	int sz = m_width*m_height;
 	//--------------------------------------------------
 	//if(0 == klabels) klabels = new int[sz];
-	for( int s = 0; s < sz; s++ ) klabels[s] = -1;
+	memset(klabels, -1, sizeof(int) * sz);
+	// for( int s = 0; s < sz; s++ ) klabels[s] = -1;
 	//--------------------------------------------------
 #ifdef LOCK
 	lock = new omp_lock_t[sz];
@@ -1000,7 +1002,10 @@ void SLIC::PerformSLICO_ForGivenK(
 	startTime = Clock::now();
 #endif
 	EnforceLabelConnectivity(klabels, m_width, m_height, nlabels, numlabels, K);
-	{for(int i = 0; i < sz; i++ ) klabels[i] = nlabels[i];}
+	{
+		memcpy(klabels, nlabels, sizeof(int) * sz);
+		// for(int i = 0; i < sz; i++) klabels[i] = nlabels[i];
+	}
 #ifdef PROF
 	endTime = Clock::now();
 	compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
