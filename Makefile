@@ -1,4 +1,4 @@
-CC = g++
+CC = mpicxx
 CCFLAGS = -std=c++11 -O3 -fopenmp -mavx2
 CASE = 1
 
@@ -18,7 +18,8 @@ gprof : SLIC.cpp SLIC.h
 	$(CC) $(CCFLAGS) -pg -o SLIC $<
 
 run :
-	srun -p amd_256 -N 1 ./SLIC $(CASE)
+	sbatch script.sh
+	squeue
 
 clean :
 	rm ./SLIC
