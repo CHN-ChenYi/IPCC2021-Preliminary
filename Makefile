@@ -6,7 +6,7 @@ main : SLIC.cpp SLIC.h
 	$(CC) $(CCFLAGS) -o SLIC $<
 
 prof : SLIC.cpp SLIC.h
-	$(CC) $(CCFLAGS) -DPROF -o SLIC $<
+	$(CC) $(CCFLAGS) -DSLCT -DPROF -o SLIC $<
 
 slct : SLIC.cpp SLIC.h
 	$(CC) $(CCFLAGS) -DSLCT -o SLIC $<
