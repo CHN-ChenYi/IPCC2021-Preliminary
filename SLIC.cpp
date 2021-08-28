@@ -945,6 +945,10 @@ void SLIC::PerformSLICO_ForGivenK(
 #ifdef LOCK
 	lock = new omp_lock_t[sz];
 #endif
+
+#ifdef PROF
+    auto startTime = Clock::now();
+#endif
 	if(1)//LAB
 	{
 		DoRGBtoLABConversion(ubuff, m_lvec, m_avec, m_bvec);
@@ -959,25 +963,49 @@ void SLIC::PerformSLICO_ForGivenK(
 			m_bvec[i] = ubuff[i]       & 0xff;
 		}
 	}
+#ifdef PROF
+    auto endTime = Clock::now();
+    auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+    cout <<  "DoRGBtoLABConversion time=" << compTime.count()/1000 << " ms" << endl;
+#endif
 	//--------------------------------------------------
 
 	bool perturbseeds(true);
 	vector<double> edgemag(0);
+#ifdef PROF
+    startTime = Clock::now();
+#endif
 	if(perturbseeds) DetectLabEdges(m_lvec, m_avec, m_bvec, m_width, m_height, edgemag);
 	GetLABXYSeeds_ForGivenK(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, K, perturbseeds, edgemag);
+#ifdef PROF
+    endTime = Clock::now();
+    compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+    cout <<  "GetLABXYSeeds_ForGivenK time=" << compTime.count()/1000 << " ms" << endl;
+#endif
 
-    auto startTime = Clock::now();
+#ifdef PROF
+    startTime = Clock::now();
+#endif
 	int STEP = sqrt(double(sz)/double(K)) + 2.0;//adding a small value in the even the STEP size is too small.
 	PerformSuperpixelSegmentation_VariableSandM(kseedsl,kseedsa,kseedsb,kseedsx,kseedsy,klabels,STEP,10);
 	numlabels = kseedsl.size();
-    auto endTime = Clock::now();
-    auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+#ifdef PROF
+    endTime = Clock::now();
+    compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
     cout <<  "PerformSuperpixelSegmentation_VariableSandM time=" << compTime.count()/1000 << " ms" << endl;
-
+#endif
 
 	int* nlabels = new int[sz];
+#ifdef PROF
+	startTime = Clock::now();
+#endif
 	EnforceLabelConnectivity(klabels, m_width, m_height, nlabels, numlabels, K);
 	{for(int i = 0; i < sz; i++ ) klabels[i] = nlabels[i];}
+#ifdef PROF
+	endTime = Clock::now();
+	compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+	cout <<  "EnforceLabelConnectivity time=" << compTime.count()/1000 << " ms" << endl;
+#endif
 	if(nlabels) delete [] nlabels;
 }
 
