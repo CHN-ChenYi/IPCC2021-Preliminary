@@ -47,10 +47,10 @@ const int dx10[10] = {-1,  0,  1,  0, -1,  1,  1, -1,  0, 0};
 const int dy10[10] = { 0, -1,  0,  1, -1, -1,  1,  1,  0, 0};
 const int dz10[10] = { 0,  0,  0,  0,  0,  0,  0,  0, -1, 1};
 
+#define MYMPI
 
 #ifdef MYMPI
 // For mpi
-int world_size;
 int world_rank;
 #endif
 
@@ -902,9 +902,14 @@ void SLIC::PerformSLICO_ForGivenK(
 	PerformSuperpixelSegmentation_VariableSandM(kseedsl,kseedsa,kseedsb,kseedsx,kseedsy,klabels,STEP,10);
 	numlabels = kseedsl.size();
 #ifdef PROF
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
     endTime = Clock::now();
     compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
     cout <<  "PerformSuperpixelSegmentation_VariableSandM time=" << compTime.count()/1000 << " ms" << endl;
+	}
 #endif
 
 	int* nlabels = new int[sz];
@@ -1098,7 +1103,6 @@ int main(int argc, char **argv)
 	auto startTime = Clock::now();
 #ifdef MYMPI
 	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 #endif
 	slic.PerformSLICO_ForGivenK(img, width, height, labels, numlabels, m_spcount, m_compactness); //for a given number K of superpixels
@@ -1154,7 +1158,6 @@ int main (int argc, char **argv)
     auto startTime = Clock::now();
 #ifdef MYMPI
 	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 #endif
 	slic.PerformSLICO_ForGivenK(img, width, height, labels, numlabels, m_spcount, m_compactness);//for a given number K of superpixels
