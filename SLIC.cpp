@@ -47,8 +47,6 @@ const int dx10[10] = {-1,  0,  1,  0, -1,  1,  1, -1,  0, 0};
 const int dy10[10] = { 0, -1,  0,  1, -1, -1,  1,  1,  0, 0};
 const int dz10[10] = { 0,  0,  0,  0,  0,  0,  0,  0, -1, 1};
 
-#define MYMPI
-
 #ifdef MYMPI
 // For mpi
 int world_rank;
@@ -60,9 +58,11 @@ int world_rank;
 
 SLIC::SLIC()
 {
-	m_lvec = NULL;
-	m_avec = NULL;
-	m_bvec = NULL;
+	// m_lvec = NULL;
+	// m_avec = NULL;
+	// m_bvec = NULL;
+
+	m_vec=NULL;
 
 	m_lvecvec = NULL;
 	m_avecvec = NULL;
@@ -71,9 +71,7 @@ SLIC::SLIC()
 
 SLIC::~SLIC()
 {
-	if(m_lvec) delete [] m_lvec;
-	if(m_avec) delete [] m_avec;
-	if(m_bvec) delete [] m_bvec;
+	if(m_vec) delete [] m_vec;
 
 	if(m_lvecvec)
 	{
@@ -168,14 +166,10 @@ void SLIC::RGB2LAB(const int& sR, const int& sG, const int& sB, double& lval, do
 //===========================================================================
 void SLIC::DoRGBtoLABConversion(
 	const unsigned int*&		ubuff,
-	double*&					lvec,
-	double*&					avec,
-	double*&					bvec)
+	lab_wrapper*&				vec)
 {
 	int sz = m_width*m_height;
-	lvec = new double[sz];
-	avec = new double[sz];
-	bvec = new double[sz];
+	vec=new lab_wrapper[sz];
 
 	#pragma omp parallel for
 	for( int j = 0; j < sz; j++ )
@@ -184,12 +178,12 @@ void SLIC::DoRGBtoLABConversion(
 		int g = (ubuff[j] >>  8) & 0xFF;
 		int b = (ubuff[j]      ) & 0xFF;
 
-		RGB2LAB( r, g, b, lvec[j], avec[j], bvec[j] );
+		RGB2LAB( r, g, b, vec[j].l, vec[j].a, vec[j].b);
 	}
 	/*
 	int mid = sz / 2;
-	MPI_Status status[6];
-	MPI_Request request[6];
+	MPI_Status status;
+	// MPI_Request request;
 	if(world_rank==0)
 	{
 		#pragma omp parallel for
@@ -199,17 +193,18 @@ void SLIC::DoRGBtoLABConversion(
 			int g = (ubuff[j] >>  8) & 0xFF;
 			int b = (ubuff[j]      ) & 0xFF;
 
-			RGB2LAB( r, g, b, lvec[j], avec[j], bvec[j] );
+			RGB2LAB( r, g, b, vec[j].l, vec[j].a, vec[j].b );
 		}
-		MPI_Isend(lvec,mid,MPI_DOUBLE,1,0,MPI_COMM_WORLD,&request[0]);
-		MPI_Isend(avec,mid,MPI_DOUBLE,1,2,MPI_COMM_WORLD,&request[1]);
-		MPI_Isend(bvec,mid,MPI_DOUBLE,1,4,MPI_COMM_WORLD,&request[2]);
-		MPI_Irecv(lvec+mid,sz-mid,MPI_DOUBLE,1,1,MPI_COMM_WORLD,&request[3]);
-		MPI_Irecv(avec+mid,sz-mid,MPI_DOUBLE,1,3,MPI_COMM_WORLD,&request[4]);
-		MPI_Irecv(bvec+mid,sz-mid,MPI_DOUBLE,1,5,MPI_COMM_WORLD,&request[5]);
+		// MPI_Isend(lvec,mid,MPI_DOUBLE,1,0,MPI_COMM_WORLD,&request[0]);
+		// MPI_Isend(avec,mid,MPI_DOUBLE,1,2,MPI_COMM_WORLD,&request[1]);
+		// MPI_Isend(bvec,mid,MPI_DOUBLE,1,4,MPI_COMM_WORLD,&request[2]);
+		// MPI_Irecv(lvec+mid,sz-mid,MPI_DOUBLE,1,1,MPI_COMM_WORLD,&request[3]);
+		// MPI_Irecv(avec+mid,sz-mid,MPI_DOUBLE,1,3,MPI_COMM_WORLD,&request[4]);
+		// MPI_Irecv(bvec+mid,sz-mid,MPI_DOUBLE,1,5,MPI_COMM_WORLD,&request[5]);
 		// MPI_Sendrecv(lvec,mid,MPI_DOUBLE,1,0,lvec+mid,sz-mid,MPI_DOUBLE,1,1,MPI_COMM_WORLD,&status[0]);
 		// MPI_Sendrecv(avec,mid,MPI_DOUBLE,1,2,avec+mid,sz-mid,MPI_DOUBLE,1,3,MPI_COMM_WORLD,&status[1]);
 		// MPI_Sendrecv(bvec,mid,MPI_DOUBLE,1,4,bvec+mid,sz-mid,MPI_DOUBLE,1,5,MPI_COMM_WORLD,&status[2]);
+		MPI_Sendrecv(vec,mid*3,MPI_DOUBLE,1,0,vec+mid,(sz-mid)*3,MPI_DOUBLE,1,1,MPI_COMM_WORLD,&status);
 	}
 	else
 	{
@@ -220,19 +215,20 @@ void SLIC::DoRGBtoLABConversion(
 			int g = (ubuff[j] >>  8) & 0xFF;
 			int b = (ubuff[j]      ) & 0xFF;
 
-			RGB2LAB( r, g, b, lvec[j], avec[j], bvec[j] );
+			RGB2LAB( r, g, b, vec[j].l, vec[j].a, vec[j].b );
 		}
-		MPI_Isend(lvec+mid,sz-mid,MPI_DOUBLE,0,1,MPI_COMM_WORLD,&request[0]);
-		MPI_Isend(avec+mid,sz-mid,MPI_DOUBLE,0,3,MPI_COMM_WORLD,&request[1]);
-		MPI_Isend(bvec+mid,sz-mid,MPI_DOUBLE,0,5,MPI_COMM_WORLD,&request[2]);
-		MPI_Irecv(lvec,mid,MPI_DOUBLE,0,0,MPI_COMM_WORLD,&request[3]);
-		MPI_Irecv(avec,mid,MPI_DOUBLE,0,2,MPI_COMM_WORLD,&request[4]);
-		MPI_Irecv(bvec,mid,MPI_DOUBLE,0,4,MPI_COMM_WORLD,&request[5]);
+		// MPI_Isend(lvec+mid,sz-mid,MPI_DOUBLE,0,1,MPI_COMM_WORLD,&request[0]);
+		// MPI_Isend(avec+mid,sz-mid,MPI_DOUBLE,0,3,MPI_COMM_WORLD,&request[1]);
+		// MPI_Isend(bvec+mid,sz-mid,MPI_DOUBLE,0,5,MPI_COMM_WORLD,&request[2]);
+		// MPI_Irecv(lvec,mid,MPI_DOUBLE,0,0,MPI_COMM_WORLD,&request[3]);
+		// MPI_Irecv(avec,mid,MPI_DOUBLE,0,2,MPI_COMM_WORLD,&request[4]);
+		// MPI_Irecv(bvec,mid,MPI_DOUBLE,0,4,MPI_COMM_WORLD,&request[5]);
 		// MPI_Sendrecv(lvec+mid,sz-mid,MPI_DOUBLE,0,1,lvec,mid,MPI_DOUBLE,0,0,MPI_COMM_WORLD,&status[0]);
 		// MPI_Sendrecv(avec+mid,sz-mid,MPI_DOUBLE,0,3,avec,mid,MPI_DOUBLE,0,2,MPI_COMM_WORLD,&status[1]);
 		// MPI_Sendrecv(bvec+mid,sz-mid,MPI_DOUBLE,0,5,bvec,mid,MPI_DOUBLE,0,4,MPI_COMM_WORLD,&status[2]);
+		MPI_Sendrecv(vec+mid,(sz-mid)*3,MPI_DOUBLE,0,1,vec,mid*3,MPI_DOUBLE,0,0,MPI_COMM_WORLD,&status);
 	}
-	MPI_Waitall(6,request,status);
+	// MPI_Waitall(6,request,status);
 	*/
 }
 
@@ -240,9 +236,7 @@ void SLIC::DoRGBtoLABConversion(
 ///	DetectLabEdges
 //==============================================================================
 void SLIC::DetectLabEdges(
-	const double*				lvec,
-	const double*				avec,
-	const double*				bvec,
+	const lab_wrapper*			vec,
 	const int&					width,
 	const int&					height,
 	vector<double>&				edges)
@@ -257,13 +251,13 @@ void SLIC::DetectLabEdges(
 		{
 			int i = j*width+k;
 
-			double dx = (lvec[i-1]-lvec[i+1])*(lvec[i-1]-lvec[i+1]) +
-						(avec[i-1]-avec[i+1])*(avec[i-1]-avec[i+1]) +
-						(bvec[i-1]-bvec[i+1])*(bvec[i-1]-bvec[i+1]);
+			double dx = (vec[i-1].l-vec[i+1].l)*(vec[i-1].l-vec[i+1].l) +
+						(vec[i-1].a-vec[i+1].a)*(vec[i-1].a-vec[i+1].a) +
+						(vec[i-1].b-vec[i+1].b)*(vec[i-1].b-vec[i+1].b);
 
-			double dy = (lvec[i-width]-lvec[i+width])*(lvec[i-width]-lvec[i+width]) +
-						(avec[i-width]-avec[i+width])*(avec[i-width]-avec[i+width]) +
-						(bvec[i-width]-bvec[i+width])*(bvec[i-width]-bvec[i+width]);
+			double dy = (vec[i-width].l-vec[i+width].l)*(vec[i-width].l-vec[i+width].l) +
+						(vec[i-width].a-vec[i+width].a)*(vec[i-width].a-vec[i+width].a) +
+						(vec[i-width].b-vec[i+width].b)*(vec[i-width].b-vec[i+width].b);
 
 			//edges[i] = (sqrt(dx) + sqrt(dy));
 			edges[i] = (dx + dy);
@@ -275,22 +269,18 @@ void SLIC::DetectLabEdges(
 ///	PerturbSeeds
 //===========================================================================
 void SLIC::PerturbSeeds(
-	vector<double>&				kseedsl,
-	vector<double>&				kseedsa,
-	vector<double>&				kseedsb,
-	vector<double>&				kseedsx,
-	vector<double>&				kseedsy,
+	vector<labxy_wrapper>&		kseeds,
 	const vector<double>&		edges)
 {
 	const int dx8[8] = {-1, -1,  0,  1, 1, 1, 0, -1};
 	const int dy8[8] = { 0, -1, -1, -1, 0, 1, 1,  1};
 	
-	int numseeds = kseedsl.size();
+	int numseeds = kseeds.size();
 
 	for( int n = 0; n < numseeds; n++ )
 	{
-		int ox = kseedsx[n];//original x
-		int oy = kseedsy[n];//original y
+		int ox = kseeds[n].x;//original x
+		int oy = kseeds[n].y;//original y
 		int oind = oy*m_width + ox;
 
 		int storeind = oind;
@@ -310,11 +300,11 @@ void SLIC::PerturbSeeds(
 		}
 		if(storeind != oind)
 		{
-			kseedsx[n] = storeind%m_width;
-			kseedsy[n] = storeind/m_width;
-			kseedsl[n] = m_lvec[storeind];
-			kseedsa[n] = m_avec[storeind];
-			kseedsb[n] = m_bvec[storeind];
+			kseeds[n].x = storeind%m_width;
+			kseeds[n].y = storeind/m_width;
+			kseeds[n].l = m_vec[storeind].l;
+			kseeds[n].a = m_vec[storeind].a;
+			kseeds[n].b = m_vec[storeind].b;
 		}
 	}
 }
@@ -325,11 +315,7 @@ void SLIC::PerturbSeeds(
 /// The k seed values are taken as uniform spatial pixel samples.
 //===========================================================================
 void SLIC::GetLABXYSeeds_ForGivenK(
-	vector<double>&				kseedsl,
-	vector<double>&				kseedsa,
-	vector<double>&				kseedsb,
-	vector<double>&				kseedsx,
-	vector<double>&				kseedsy,
+	vector<labxy_wrapper>&		kseeds,
 	const int&					K,
 	const bool&					perturbseeds,
 	const vector<double>&		edgemag)
@@ -356,16 +342,12 @@ void SLIC::GetLABXYSeeds_ForGivenK(
 
 			//_ASSERT(n < K);
 			
-			//kseedsl[n] = m_lvec[i];
-			//kseedsa[n] = m_avec[i];
-			//kseedsb[n] = m_bvec[i];
-			//kseedsx[n] = X;
-			//kseedsy[n] = Y;
-			kseedsl.push_back(m_lvec[i]);
-			kseedsa.push_back(m_avec[i]);
-			kseedsb.push_back(m_bvec[i]);
-			kseedsx.push_back(X);
-			kseedsy.push_back(Y);
+			//kseeds[n] = m_vec[i].l;
+			//kseeds[n] = m_vec[i].a;
+			//kseeds[n] = m_vec[i].b;
+			//kseeds[n] = X;
+			//kseeds[n] = Y;
+			kseeds.push_back(labxy_wrapper(m_vec[i].l,m_vec[i].a,m_vec[i].b,X,Y));
 			n++;
 		}
 		r++;
@@ -373,7 +355,7 @@ void SLIC::GetLABXYSeeds_ForGivenK(
 
 	if(perturbseeds)
 	{
-		PerturbSeeds(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, edgemag);
+		PerturbSeeds(kseeds, edgemag);
 	}
 }
 
@@ -396,17 +378,13 @@ void SLIC::GetLABXYSeeds_ForGivenK(
 /// not the step size S.
 //===========================================================================
 void SLIC::PerformSuperpixelSegmentation_VariableSandM(
-	vector<double>&				kseedsl,
-	vector<double>&				kseedsa,
-	vector<double>&				kseedsb,
-	vector<double>&				kseedsx,
-	vector<double>&				kseedsy,
+	vector<labxy_wrapper>&		kseeds,
 	int*						klabels,
 	const int&					STEP,
 	const int&					NUMITR)
 {
 	int sz = m_width*m_height;
-	const int numk = kseedsl.size();
+	const int numk = kseeds.size();
 	//double cumerr(99999.9);
 	int numitr(0);
 
@@ -416,11 +394,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 	//----------------
 
 
-	vector<double> sigmal(numk, 0);
-	vector<double> sigmaa(numk, 0);
-	vector<double> sigmab(numk, 0);
-	vector<double> sigmax(numk, 0);
-	vector<double> sigmay(numk, 0);
+	vector<labxy_wrapper> sigma(numk);
 	vector<int> clustersize(numk, 0);
 	vector<double> inv(numk, 0);//to store 1/clustersize[k] values
 	vector<double> distxy(sz, DBL_MAX);
@@ -435,11 +409,12 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 	int *distidx = new int[sz];
 	double *_maxlab[OMP_NUM_THREADS];
 	double *_maxxy[OMP_NUM_THREADS];
-	double *_sigmal[OMP_NUM_THREADS];
-	double *_sigmaa[OMP_NUM_THREADS];
-	double *_sigmab[OMP_NUM_THREADS];
-	double *_sigmax[OMP_NUM_THREADS];
-	double *_sigmay[OMP_NUM_THREADS];
+	// double *_sigmal[OMP_NUM_THREADS];
+	// double *_sigmaa[OMP_NUM_THREADS];
+	// double *_sigmab[OMP_NUM_THREADS];
+	// double *_sigmax[OMP_NUM_THREADS];
+	// double *_sigmay[OMP_NUM_THREADS];
+	labxy_wrapper *_sigma[OMP_NUM_THREADS];
 	int *_clustersize[OMP_NUM_THREADS];
 
 	// memset(distidx, 0, sizeof(int) * sz);
@@ -447,11 +422,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 	for (int i = 0; i < OMP_NUM_THREADS; ++i) {
 		_maxlab[i] = new double[numk];
 		_maxxy[i] = new double[numk];
-		_sigmal[i] = new double[numk];
-		_sigmaa[i] = new double[numk];
-		_sigmab[i] = new double[numk];
-		_sigmax[i] = new double[numk];
-		_sigmay[i] = new double[numk];
+		_sigma[i] = new labxy_wrapper[numk];
 		_clustersize[i] = new int[numk];
 	}
 #ifdef PROF
@@ -484,11 +455,11 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 
 		for( int n = 0; n < numk; n++ )
 		{
-			const double _kseedsl = kseedsl[n];
-			const double _kseedsa = kseedsa[n];
-			const double _kseedsb = kseedsb[n];
-			const double _kseedsx = kseedsx[n];
-			const double _kseedsy = kseedsy[n];
+			const double _kseedsl = kseeds[n].l;
+			const double _kseedsa = kseeds[n].a;
+			const double _kseedsb = kseeds[n].b;
+			const double _kseedsx = kseeds[n].x;
+			const double _kseedsy = kseeds[n].y;
 			const int y1 = max(0,			(int)(_kseedsy-offset));
 			const int y2 = min(m_height,	(int)(_kseedsy+offset));
 			const int x1 = max(0,			(int)(_kseedsx-offset));
@@ -502,9 +473,9 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 					const int i = y*m_width + x;
 					//_ASSERT( y < m_height && x < m_width && y >= 0 && x >= 0 );
 
-					const double l = m_lvec[i];
-					const double a = m_avec[i];
-					const double b = m_bvec[i];
+					const double l = m_vec[i].l;
+					const double a = m_vec[i].a;
+					const double b = m_vec[i].b;
 
 					const double _distlab =	(l - _kseedsl)*(l - _kseedsl) +
 											(a - _kseedsa)*(a - _kseedsa) +
@@ -596,21 +567,13 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		startTime = Clock::now();
 	}
 #endif
-		sigmal.assign(numk, 0);
-		sigmaa.assign(numk, 0);
-		sigmab.assign(numk, 0);
-		sigmax.assign(numk, 0);
-		sigmay.assign(numk, 0);
+		sigma.assign(numk,labxy_wrapper());
 		clustersize.assign(numk, 0);
 
 		
 		#pragma omp parallel for
 		for (int i = 0; i < OMP_NUM_THREADS; ++i) {
-			memset(_sigmal[i], 0, sizeof(double) * numk);
-			memset(_sigmaa[i], 0, sizeof(double) * numk);
-			memset(_sigmab[i], 0, sizeof(double) * numk);
-			memset(_sigmax[i], 0, sizeof(double) * numk);
-			memset(_sigmay[i], 0, sizeof(double) * numk);
+			memset(_sigma[i], 0, 5 * sizeof(double) * numk);
 			memset(_clustersize[i], 0, sizeof(int) * numk);
 		}
 		#pragma omp parallel
@@ -618,11 +581,11 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		int idx = omp_get_thread_num();
 		#pragma omp for
 		for (int j = 0; j < sz; ++j) {
-			_sigmal[idx][klabels[j]] += m_lvec[j];
-			_sigmaa[idx][klabels[j]] += m_avec[j];
-			_sigmab[idx][klabels[j]] += m_bvec[j];
-			_sigmax[idx][klabels[j]] += (j%m_width);
-			_sigmay[idx][klabels[j]] += (j/m_width);
+			_sigma[idx][klabels[j]].l += m_vec[j].l;
+			_sigma[idx][klabels[j]].a += m_vec[j].a;
+			_sigma[idx][klabels[j]].b += m_vec[j].b;
+			_sigma[idx][klabels[j]].x += (j%m_width);
+			_sigma[idx][klabels[j]].y += (j/m_width);
 
 			_clustersize[idx][klabels[j]]++;
 		}
@@ -630,11 +593,11 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		#pragma omp parallel for
 		for (int i = 0; i < numk; ++i)
 			for (int j = 0; j < OMP_NUM_THREADS; ++j) {
-				sigmal[i] += _sigmal[j][i];
-				sigmaa[i] += _sigmaa[j][i];
-				sigmab[i] += _sigmab[j][i];
-				sigmax[i] += _sigmax[j][i];
-				sigmay[i] += _sigmay[j][i];
+				sigma[i].l += _sigma[j][i].l;
+				sigma[i].a += _sigma[j][i].a;
+				sigma[i].b += _sigma[j][i].b;
+				sigma[i].x += _sigma[j][i].x;
+				sigma[i].y += _sigma[j][i].y;
 				clustersize[i] += _clustersize[j][i];
 			}
 
@@ -666,11 +629,11 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		#pragma omp for
 		for( int k = 0; k < numk; k++ )
 		{
-			kseedsl[k] = sigmal[k]*inv[k];
-			kseedsa[k] = sigmaa[k]*inv[k];
-			kseedsb[k] = sigmab[k]*inv[k];
-			kseedsx[k] = sigmax[k]*inv[k];
-			kseedsy[k] = sigmay[k]*inv[k];
+			kseeds[k].l = sigma[k].l*inv[k];
+			kseeds[k].a = sigma[k].a*inv[k];
+			kseeds[k].b = sigma[k].b*inv[k];
+			kseeds[k].x = sigma[k].x*inv[k];
+			kseeds[k].y = sigma[k].y*inv[k];
 		}
 		}
 	}
@@ -694,11 +657,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 	for (int i = 0; i < OMP_NUM_THREADS; ++i) {
 		delete [] _maxlab[i];
 		delete [] _maxxy[i];
-		delete [] _sigmal[i];
-		delete [] _sigmaa[i];
-		delete [] _sigmab[i];
-		delete [] _sigmax[i];
-		delete [] _sigmay[i];
+		delete [] _sigma[i];
 		delete [] _clustersize[i];
 	}
 }
@@ -863,11 +822,13 @@ void SLIC::PerformSLICO_ForGivenK(
 	const int&					K,//required number of superpixels
 	const double&				m)//weight given to spatial distance
 {
-	vector<double> kseedsl(0);
-	vector<double> kseedsa(0);
-	vector<double> kseedsb(0);
-	vector<double> kseedsx(0);
-	vector<double> kseedsy(0);
+	// vector<double> kseedsl(0);
+	// vector<double> kseedsa(0);
+	// vector<double> kseedsb(0);
+	// vector<double> kseedsx(0);
+	// vector<double> kseedsy(0);
+
+	vector<labxy_wrapper> kseeds(0);
 
 	//--------------------------------------------------
 	m_width  = width;
@@ -891,16 +852,17 @@ void SLIC::PerformSLICO_ForGivenK(
 #endif
 	if(1)//LAB
 	{
-		DoRGBtoLABConversion(ubuff, m_lvec, m_avec, m_bvec);
+		DoRGBtoLABConversion(ubuff, m_vec);
 	}
 	else//RGB
 	{
-		m_lvec = new double[sz]; m_avec = new double[sz]; m_bvec = new double[sz];
+		// m_lvec = new double[sz]; m_avec = new double[sz]; m_bvec = new double[sz];
+		m_vec = new lab_wrapper[sz];
 		for( int i = 0; i < sz; i++ )
 		{
-			m_lvec[i] = ubuff[i] >> 16 & 0xff;
-			m_avec[i] = ubuff[i] >>  8 & 0xff;
-			m_bvec[i] = ubuff[i]       & 0xff;
+			m_vec[i].l = ubuff[i] >> 16 & 0xff;
+			m_vec[i].a = ubuff[i] >>  8 & 0xff;
+			m_vec[i].b = ubuff[i]       & 0xff;
 		}
 	}
 #ifdef PROF
@@ -925,8 +887,8 @@ void SLIC::PerformSLICO_ForGivenK(
     startTime = Clock::now();
 	}
 #endif
-	if(perturbseeds) DetectLabEdges(m_lvec, m_avec, m_bvec, m_width, m_height, edgemag);
-	GetLABXYSeeds_ForGivenK(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, K, perturbseeds, edgemag);
+	if(perturbseeds) DetectLabEdges(m_vec, m_width, m_height, edgemag);
+	GetLABXYSeeds_ForGivenK(kseeds, K, perturbseeds, edgemag);
 #ifdef PROF
 #ifdef MYMPI
 	if (world_rank == 0)
@@ -947,8 +909,8 @@ void SLIC::PerformSLICO_ForGivenK(
 	}
 #endif
 	int STEP = sqrt(double(sz)/double(K)) + 2.0;//adding a small value in the even the STEP size is too small.
-	PerformSuperpixelSegmentation_VariableSandM(kseedsl,kseedsa,kseedsb,kseedsx,kseedsy,klabels,STEP,10);
-	numlabels = kseedsl.size();
+	PerformSuperpixelSegmentation_VariableSandM(kseeds,klabels,STEP,10);
+	numlabels = kseeds.size();
 #ifdef PROF
 #ifdef MYMPI
 	if (world_rank == 0)
