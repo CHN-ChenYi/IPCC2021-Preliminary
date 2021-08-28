@@ -8,6 +8,9 @@ main : SLIC.cpp SLIC.h
 prof : SLIC.cpp SLIC.h
 	$(CC) $(CCFLAGS) -DPROF -o SLIC $<
 
+slct : SLIC.cpp SLIC.h
+	$(CC) $(CCFLAGS) -DSLCT -o SLIC $<
+
 run :
 	srun -p amd_256 -N 1 ./SLIC $(CASE)
 

@@ -36,7 +36,7 @@ There are 0 points' labels are different from original file.
 ## 运行方法
 
 ```
-make
+make slct
 make run CASE=1
 make run CASE=2
 make run CASE=3

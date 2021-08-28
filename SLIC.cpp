@@ -1087,6 +1087,7 @@ int CheckLabelswithPPM(char* filename, int* labels, int width, int height)
 ///	The main function
 ///
 //===========================================================================
+#ifdef SLCT
 int main(int argc, char **argv)
 {
 	unsigned int *img = NULL;
@@ -1163,3 +1164,42 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+#else
+int main (int argc, char **argv)
+{
+	unsigned int* img = NULL;
+	int width(0);
+	int height(0);
+
+	LoadPPM((char *)"input_image.ppm", &img, &width, &height);
+	if (width == 0 || height == 0) return -1;
+
+	int sz = width*height;
+	int* labels = new int[sz];
+	int numlabels(0);
+	SLIC slic;
+	int m_spcount;
+	double m_compactness;
+	m_spcount = 400;
+	m_compactness = 10.0;
+    auto startTime = Clock::now();
+	slic.PerformSLICO_ForGivenK(img, width, height, labels, numlabels, m_spcount, m_compactness);//for a given number K of superpixels
+    auto endTime = Clock::now();
+    auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+    cout <<  "Computing time=" << compTime.count()/1000 << " ms" << endl;
+
+	int num = CheckLabelswithPPM((char *)"check.ppm", labels, width, height);
+	if (num < 0) {
+		cout <<  "The result for labels is different from output_labels.ppm." << endl;
+	} else {
+		cout <<  "There are " << num << " points' labels are different from original file." << endl;
+	}
+	
+	slic.SaveSuperpixelLabels2PPM((char *)"output_labels.ppm", labels, width, height);
+	if(labels) delete [] labels;
+	
+	if(img) delete [] img;
+
+	return 0;
+}
+#endif
