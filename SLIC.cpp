@@ -32,6 +32,7 @@
 #include <chrono>
 
 #include <omp.h>
+#include <mpi.h>
 
 typedef chrono::high_resolution_clock Clock;
 
@@ -45,6 +46,13 @@ const int dy4[4] = { 0, -1,  0,  1};
 const int dx10[10] = {-1,  0,  1,  0, -1,  1,  1, -1,  0, 0};
 const int dy10[10] = { 0, -1,  0,  1, -1, -1,  1,  1,  0, 0};
 const int dz10[10] = { 0,  0,  0,  0,  0,  0,  0,  0, -1, 1};
+
+
+#ifdef MYMPI
+// For mpi
+int world_size;
+int world_rank;
+#endif
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -66,10 +74,6 @@ SLIC::~SLIC()
 	if(m_lvec) delete [] m_lvec;
 	if(m_avec) delete [] m_avec;
 	if(m_bvec) delete [] m_bvec;
-#ifdef LOCK
-	if(lock) delete [] lock;
-#endif
-
 
 	if(m_lvecvec)
 	{
@@ -380,14 +384,6 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 	double invxywt = 1.0/(STEP*STEP);//NOTE: this is different from how usual SLIC/LKM works
 
 	// vector<int> distidx(sz, -1);
-	// vector<double> _maxlab[OMP_NUM_THREADS];
-	// vector<double> _maxxy[OMP_NUM_THREADS];
-	// vector<double> _sigmal[OMP_NUM_THREADS];
-	// vector<double> _sigmaa[OMP_NUM_THREADS];
-	// vector<double> _sigmab[OMP_NUM_THREADS];
-	// vector<double> _sigmax[OMP_NUM_THREADS];
-	// vector<double> _sigmay[OMP_NUM_THREADS];
-	// vector<int> _clustersize[OMP_NUM_THREADS];
 	int *distidx = new int[sz];
 	double *_maxlab[OMP_NUM_THREADS];
 	double *_maxxy[OMP_NUM_THREADS];
@@ -410,18 +406,13 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		_sigmay[i] = new double[numk];
 		_clustersize[i] = new int[numk];
 	}
-
-#ifdef LOCK
-	#pragma omp parallel for
-	for (int i = 0; i < sz; ++i)
-		omp_init_lock(lock + i);
-#endif
-
 #ifdef PROF
 	auto cost1 = 0LL;
 	auto cost2 = 0LL;
 	auto cost3 = 0LL;
 	long long ccnt = 0;
+	chrono::time_point<std::chrono::high_resolution_clock> startTime, endTime;
+	chrono::microseconds compTime;
 #endif
 	while( numitr < NUMITR )
 	{
@@ -431,64 +422,17 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		//------
 
 #ifdef PROF
-		auto startTime = Clock::now();
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
+		startTime = Clock::now();
+	}
 #endif
 		#pragma omp parallel for
 		for (int i = 0; i < sz; ++i) {
 			distvec[i] = DBL_MAX;
-			// distidx[i] = -1;
 		}
-		// distvec.assign(sz, DBL_MAX);
-		// distidx.assign(sz, -1);
-/*
-		for( int n = 0; n < numk; n++ )
-		{
-			int y1 = max(0,			(int)(kseedsy[n]-offset));
-			int y2 = min(m_height,	(int)(kseedsy[n]+offset));
-			int x1 = max(0,			(int)(kseedsx[n]-offset));
-			int x2 = min(m_width,	(int)(kseedsx[n]+offset));
-
-			int ds = (y2 - y1) * (x2 - x1);
-#ifdef PROF
-			ccnt += ds;
-			// printf("ds[%d] = %d\n", n, ds);
-#endif
-
-			#pragma omp parallel for
-			for (int d = 0; d < ds; ++d) {
-				int dy = d / (x2 - x1);
-				int dx = d % (x2 - x1);
-				int y = y1 + dy;
-				int x = x1 + dx;
-				int i = y*m_width + x;
-				//_ASSERT( y < m_height && x < m_width && y >= 0 && x >= 0 );
-
-				double l = m_lvec[i];
-				double a = m_avec[i];
-				double b = m_bvec[i];
-
-				distlab[i] =	(l - kseedsl[n])*(l - kseedsl[n]) +
-									(a - kseedsa[n])*(a - kseedsa[n]) +
-									(b - kseedsb[n])*(b - kseedsb[n]);
-
-				distxy[i] =	(x - kseedsx[n])*(x - kseedsx[n]) +
-									(y - kseedsy[n])*(y - kseedsy[n]);
-
-				//------------------------------------------------------------------------
-				double dist = distlab[i]/maxlab[n] + distxy[i]*invxywt;//only varying m, prettier superpixels
-				//double dist = distlab[i]/maxlab[n] + distxy[i]/maxxy[n];//varying both m and S
-				//------------------------------------------------------------------------
-				
-
-				if( dist < distvec[i] )
-				{
-					distvec[i] = dist;
-					klabels[i]  = n;
-				}
-			}
-		}
-*/
-
 
 		for( int n = 0; n < numk; n++ )
 		{
@@ -538,68 +482,16 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 			}
 		}
 
-
-#ifdef LOCK
-		// locker
-		#pragma omp parallel for
-		for (int i = 0; i < sz; ++i) {
-			distidx[i] = -1;
-		}
-		// distidx.assign(sz, -1);
-		#pragma omp parallel for schedule(dynamic)
-		for( int n = 0; n < numk; n++ )
-		{
-			int y1 = max(0,			(int)(kseedsy[n]-offset));
-			int y2 = min(m_height,	(int)(kseedsy[n]+offset));
-			int x1 = max(0,			(int)(kseedsx[n]-offset));
-			int x2 = min(m_width,	(int)(kseedsx[n]+offset));
-
-			for( int y = y1; y < y2; y++ )
-			{
-				for( int x = x1; x < x2; x++ )
-				{
-					int i = y*m_width + x;
-					omp_set_lock(lock + i);
-					// _ASSERT( y < m_height && x < m_width && y >= 0 && x >= 0 );
-
-					double l = m_lvec[i];
-					double a = m_avec[i];
-					double b = m_bvec[i];
-
-					double _distlab =	(l - kseedsl[n])*(l - kseedsl[n]) +
-										(a - kseedsa[n])*(a - kseedsa[n]) +
-										(b - kseedsb[n])*(b - kseedsb[n]);
-
-					double _distxy =	(x - kseedsx[n])*(x - kseedsx[n]) +
-										(y - kseedsy[n])*(y - kseedsy[n]);
-
-					//------------------------------------------------------------------------
-					double dist = _distlab/maxlab[n] + _distxy*invxywt;//only varying m, prettier superpixels
-					//double dist = distlab[i]/maxlab[n] + distxy[i]/maxxy[n];//varying both m and S
-					//------------------------------------------------------------------------
-					
-					if (n > distidx[i]) {
-						distidx[i] = n;
-						distlab[i] = _distlab;
-						distxy[i] = _distxy;
-					}
-
-					if( dist < distvec[i] )
-					{
-						distvec[i] = dist;
-						klabels[i]  = n;
-					}
-					omp_unset_lock(lock + i);
-				}
-			}
-		}
-#endif
-
 #ifdef PROF
-    	auto endTime = Clock::now();
-    	auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
+    	endTime = Clock::now();
+    	compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
 		
    		cost1 += compTime.count();
+	}
 #endif
 		//-----------------------------------------------------------------
 		// Assign the max color distance for a cluster
@@ -610,21 +502,17 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		// 	maxxy.assign(numk,1);
 		// }
 #ifdef PROF
-		startTime = Clock::now();
+#ifdef MYMPI
+	if (world_rank == 0)
 #endif
-		{
-		// #pragma omp parallel for
-		// for( int i = 0; i < sz; i++ )
-		// {
-		// 	if(maxlab[klabels[i]] < distlab[i]) maxlab[klabels[i]] = distlab[i];
-		// 	if(maxxy[klabels[i]] < distxy[i]) maxxy[klabels[i]] = distxy[i];
-		// }
+	{
+		startTime = Clock::now();
+	}
+#endif
 		#pragma omp parallel for
 		for (int i = 0; i < OMP_NUM_THREADS; ++i) {
 			memset(_maxlab[i], 0, sizeof(double) * numk);
 			memset(_maxxy[i], 0, sizeof(double) * numk);
-			// _maxlab[i].assign(numk, 0);
-			// _maxxy[i].assign(numk, 0);
 		}
 		#pragma omp parallel for
 		for( int i = 0; i < sz; i++ ) {
@@ -638,18 +526,27 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 				if(maxlab[i] < _maxlab[j][i]) maxlab[i] = _maxlab[j][i];
 				if(maxxy[i] < _maxxy[j][i]) maxxy[i] = _maxxy[j][i];
 			}
-		}
 #ifdef PROF
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
     	endTime = Clock::now();
     	compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
 		
    		cost2 += compTime.count();
+	}
 #endif
 		//-----------------------------------------------------------------
 		// Recalculate the centroid and store in the seed values
 		//-----------------------------------------------------------------
 #ifdef PROF
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
 		startTime = Clock::now();
+	}
 #endif
 		sigmal.assign(numk, 0);
 		sigmaa.assign(numk, 0);
@@ -661,12 +558,6 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 		
 		#pragma omp parallel for
 		for (int i = 0; i < OMP_NUM_THREADS; ++i) {
-			// _sigmal[i].assign(numk, 0);
-			// _sigmaa[i].assign(numk, 0);
-			// _sigmab[i].assign(numk, 0);
-			// _sigmax[i].assign(numk, 0);
-			// _sigmay[i].assign(numk, 0);
-			// _clustersize[i].assign(numk, 0);
 			memset(_sigmal[i], 0, sizeof(double) * numk);
 			memset(_sigmaa[i], 0, sizeof(double) * numk);
 			memset(_sigmab[i], 0, sizeof(double) * numk);
@@ -674,9 +565,11 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 			memset(_sigmay[i], 0, sizeof(double) * numk);
 			memset(_clustersize[i], 0, sizeof(int) * numk);
 		}
-		#pragma omp parallel for
+		#pragma omp parallel
+		{
+		int idx = omp_get_thread_num();
+		#pragma omp for
 		for (int j = 0; j < sz; ++j) {
-			int idx = omp_get_thread_num();
 			_sigmal[idx][klabels[j]] += m_lvec[j];
 			_sigmaa[idx][klabels[j]] += m_avec[j];
 			_sigmab[idx][klabels[j]] += m_bvec[j];
@@ -684,6 +577,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 			_sigmay[idx][klabels[j]] += (j/m_width);
 
 			_clustersize[idx][klabels[j]]++;
+		}
 		}
 		#pragma omp parallel for
 		for (int i = 0; i < numk; ++i)
@@ -696,39 +590,32 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 				clustersize[i] += _clustersize[j][i];
 			}
 
-		// // #pragma omp parallel for
-		// for( int j = 0; j < sz; j++ )
-		// {
-		// 	int temp = klabels[j];
-		// 	//_ASSERT(klabels[j] >= 0);
-		// 	sigmal[klabels[j]] += m_lvec[j];
-		// 	sigmaa[klabels[j]] += m_avec[j];
-		// 	sigmab[klabels[j]] += m_bvec[j];
-		// 	sigmax[klabels[j]] += (j%m_width);
-		// 	sigmay[klabels[j]] += (j/m_width);
-
-		// 	clustersize[klabels[j]]++;
-		// }
 #ifdef PROF
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
     	endTime = Clock::now();
     	compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
 		
    		cost3 += compTime.count();
+	}
 #endif
 
 		#pragma omp parallel
 		{
-		#pragma omp parallel for
+		#pragma omp for
 		for( int k = 0; k < numk; k++ )
 		{
 			//_ASSERT(clustersize[k] > 0);
 			if( clustersize[k] <= 0 ) clustersize[k] = 1;
 			inv[k] = 1.0/double(clustersize[k]);//computing inverse now to multiply, than divide later
-		}}
+		}
+		}
 		
 		#pragma omp parallel
 		{
-		#pragma omp parallel for
+		#pragma omp for
 		for( int k = 0; k < numk; k++ )
 		{
 			kseedsl[k] = sigmal[k]*inv[k];
@@ -736,24 +623,23 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 			kseedsb[k] = sigmab[k]*inv[k];
 			kseedsx[k] = sigmax[k]*inv[k];
 			kseedsy[k] = sigmay[k]*inv[k];
-		}}
+		}
+		}
 	}
 
 #ifdef PROF
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
     cout << "Part1 time=" << cost1/1000 << " ms" << endl;
     cout << "Part2 time=" << cost2/1000 << " ms" << endl;
     cout << "Part3 time=" << cost3/1000 << " ms" << endl;
 	printf("sz = %d\n", sz);
 	printf("numk = %d\n", numk);
 	printf("ccnt = %lld\n", ccnt);
+	}
 #endif
-
-#ifdef LOCK
-	#pragma omp parallel for
-	for (int i = 0; i < sz; ++i)
-		omp_destroy_lock(lock + i);
-#endif
-
 
 	delete [] distidx;
 	#pragma omp parallel for
@@ -944,12 +830,16 @@ void SLIC::PerformSLICO_ForGivenK(
 	memset(klabels, -1, sizeof(int) * sz);
 	// for( int s = 0; s < sz; s++ ) klabels[s] = -1;
 	//--------------------------------------------------
-#ifdef LOCK
-	lock = new omp_lock_t[sz];
-#endif
 
 #ifdef PROF
-    auto startTime = Clock::now();
+	chrono::time_point<std::chrono::high_resolution_clock> startTime, endTime;
+	chrono::microseconds compTime;
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
+    startTime = Clock::now();
+	}
 #endif
 	if(1)//LAB
 	{
@@ -966,27 +856,47 @@ void SLIC::PerformSLICO_ForGivenK(
 		}
 	}
 #ifdef PROF
-    auto endTime = Clock::now();
-    auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
+    endTime = Clock::now();
+    compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
     cout <<  "DoRGBtoLABConversion time=" << compTime.count()/1000 << " ms" << endl;
+	}
 #endif
 	//--------------------------------------------------
 
 	bool perturbseeds(true);
 	vector<double> edgemag(0);
 #ifdef PROF
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
     startTime = Clock::now();
+	}
 #endif
 	if(perturbseeds) DetectLabEdges(m_lvec, m_avec, m_bvec, m_width, m_height, edgemag);
 	GetLABXYSeeds_ForGivenK(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, K, perturbseeds, edgemag);
 #ifdef PROF
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
     endTime = Clock::now();
     compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
     cout <<  "GetLABXYSeeds_ForGivenK time=" << compTime.count()/1000 << " ms" << endl;
+	}
 #endif
 
 #ifdef PROF
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
     startTime = Clock::now();
+	}
 #endif
 	int STEP = sqrt(double(sz)/double(K)) + 2.0;//adding a small value in the even the STEP size is too small.
 	PerformSuperpixelSegmentation_VariableSandM(kseedsl,kseedsa,kseedsb,kseedsx,kseedsy,klabels,STEP,10);
@@ -999,7 +909,12 @@ void SLIC::PerformSLICO_ForGivenK(
 
 	int* nlabels = new int[sz];
 #ifdef PROF
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
 	startTime = Clock::now();
+	}
 #endif
 	EnforceLabelConnectivity(klabels, m_width, m_height, nlabels, numlabels, K);
 	{
@@ -1007,9 +922,14 @@ void SLIC::PerformSLICO_ForGivenK(
 		// for(int i = 0; i < sz; i++) klabels[i] = nlabels[i];
 	}
 #ifdef PROF
+#ifdef MYMPI
+	if (world_rank == 0)
+#endif
+	{
 	endTime = Clock::now();
 	compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
 	cout <<  "EnforceLabelConnectivity time=" << compTime.count()/1000 << " ms" << endl;
+	}
 #endif
 	if(nlabels) delete [] nlabels;
 }
@@ -1176,7 +1096,17 @@ int main(int argc, char **argv)
 	// m_spcount = 200;
 	m_compactness = 10.0;
 	auto startTime = Clock::now();
+#ifdef MYMPI
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+#endif
 	slic.PerformSLICO_ForGivenK(img, width, height, labels, numlabels, m_spcount, m_compactness); //for a given number K of superpixels
+#ifdef MYMPI
+	MPI_Finalize();
+	if(world_rank!=0)
+		exit(0);
+#endif
 	auto endTime = Clock::now();
 	auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
 	cout << "Computing time=" << compTime.count() / 1000 << " ms" << endl;
@@ -1222,7 +1152,17 @@ int main (int argc, char **argv)
 	m_spcount = 400;
 	m_compactness = 10.0;
     auto startTime = Clock::now();
+#ifdef MYMPI
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+#endif
 	slic.PerformSLICO_ForGivenK(img, width, height, labels, numlabels, m_spcount, m_compactness);//for a given number K of superpixels
+#ifdef MYMPI
+	MPI_Finalize();
+	if(world_rank!=0)
+		exit(0);
+#endif
     auto endTime = Clock::now();
     auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
     cout <<  "Computing time=" << compTime.count()/1000 << " ms" << endl;

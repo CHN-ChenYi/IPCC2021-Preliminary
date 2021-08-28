@@ -1,20 +1,24 @@
 CC = mpicxx
 CCFLAGS = -std=c++11 -O3 -fopenmp -mavx2
+SOURCE = SLIC.cpp SLIC.h
 CASE = 1
 
-main : SLIC.cpp SLIC.h
+main : $(SOURCE)
 	$(CC) $(CCFLAGS) -o SLIC $<
 
-prof : SLIC.cpp SLIC.h
+prof : $(SOURCE)
 	$(CC) $(CCFLAGS) -DSLCT -DPROF -o SLIC $<
 
-slct : SLIC.cpp SLIC.h
+mpi : $(SOURCE)
+	$(CC) $(CCFLAGS) -DSLCT -DMYMPI -o SLIC $<
+
+mpi-prof : $(SOURCE)
+	$(CC) $(CCFLAGS) -DSLCT -DMYMPI -DPROF -o SLIC $<
+
+slct : $(SOURCE)
 	$(CC) $(CCFLAGS) -DSLCT -o SLIC $<
 
-prof-lock : SLIC.cpp SLIC.h
-	$(CC) $(CCFLAGS) -DPROF -DLOCK -o SLIC $<
-
-gprof : SLIC.cpp SLIC.h
+gprof : $(SOURCE)
 	$(CC) $(CCFLAGS) -pg -o SLIC $<
 
 run :
