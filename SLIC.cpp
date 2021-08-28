@@ -186,6 +186,40 @@ void SLIC::DoRGBtoLABConversion(
 
 		RGB2LAB( r, g, b, lvec[j], avec[j], bvec[j] );
 	}
+	/*
+	int mid = sz / 2;
+	MPI_Status status[3];
+	if(world_rank==0)
+	{
+		#pragma omp parallel for
+		for( int j = 0; j < mid; j++ )
+		{
+			int r = (ubuff[j] >> 16) & 0xFF;
+			int g = (ubuff[j] >>  8) & 0xFF;
+			int b = (ubuff[j]      ) & 0xFF;
+
+			RGB2LAB( r, g, b, lvec[j], avec[j], bvec[j] );
+		}
+		MPI_Sendrecv(lvec,mid,MPI_DOUBLE,1,0,lvec+mid,sz-mid,MPI_DOUBLE,1,1,MPI_COMM_WORLD,&status[0]);
+		MPI_Sendrecv(avec,mid,MPI_DOUBLE,1,2,avec+mid,sz-mid,MPI_DOUBLE,1,3,MPI_COMM_WORLD,&status[1]);
+		MPI_Sendrecv(bvec,mid,MPI_DOUBLE,1,4,bvec+mid,sz-mid,MPI_DOUBLE,1,5,MPI_COMM_WORLD,&status[2]);
+	}
+	else
+	{
+		#pragma omp parallel for
+		for( int j = mid; j < sz; j++ )
+		{
+			int r = (ubuff[j] >> 16) & 0xFF;
+			int g = (ubuff[j] >>  8) & 0xFF;
+			int b = (ubuff[j]      ) & 0xFF;
+
+			RGB2LAB( r, g, b, lvec[j], avec[j], bvec[j] );
+		}
+		MPI_Sendrecv(lvec+mid,sz-mid,MPI_DOUBLE,0,1,lvec,mid,MPI_DOUBLE,0,0,MPI_COMM_WORLD,&status[0]);
+		MPI_Sendrecv(avec+mid,sz-mid,MPI_DOUBLE,0,3,avec,mid,MPI_DOUBLE,0,2,MPI_COMM_WORLD,&status[1]);
+		MPI_Sendrecv(bvec+mid,sz-mid,MPI_DOUBLE,0,5,bvec,mid,MPI_DOUBLE,0,4,MPI_COMM_WORLD,&status[2]);
+	}
+	*/
 }
 
 //==============================================================================
@@ -1049,15 +1083,17 @@ int CheckLabelswithPPM(char* filename, int* labels, int width, int height)
 
 //===========================================================================
 ///	The main function
-///
 //===========================================================================
-#ifdef SLCT
 int main(int argc, char **argv)
 {
+#ifdef MYMPI
+	MPI_Init(&argc, &argv);
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+#endif
 	unsigned int *img = NULL;
 	int width(0);
 	int height(0);
-
+#ifdef SLCT
 	//===========================case_switch=================================
 	const int name_len = 100;
 	char input_flag = '1';
@@ -1085,9 +1121,11 @@ int main(int argc, char **argv)
 	sprintf(check_name, "case%c/check.ppm", input_flag);
 	sprintf(output_name, "case%c/output_labels.ppm", input_flag);
 	//==========================case_switch_end==============================
-
-	// LoadPPM((char *)"input_image.ppm", &img, &width, &height);
 	LoadPPM(input_name, &img, &width, &height);
+#else
+	int m_spcount = 200;
+	LoadPPM((char *)"input_image.ppm", &img, &width, &height);
+#endif
 
 	if (width == 0 || height == 0)
 		return -1;
@@ -1101,22 +1139,22 @@ int main(int argc, char **argv)
 	// m_spcount = 200;
 	m_compactness = 10.0;
 	auto startTime = Clock::now();
-#ifdef MYMPI
-	MPI_Init(&argc, &argv);
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-#endif
-	slic.PerformSLICO_ForGivenK(img, width, height, labels, numlabels, m_spcount, m_compactness); //for a given number K of superpixels
-#ifdef MYMPI
-	MPI_Finalize();
-	if(world_rank!=0)
-		exit(0);
-#endif
-	auto endTime = Clock::now();
-	auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
-	cout << "Computing time=" << compTime.count() / 1000 << " ms" << endl;
 
-	// int num = CheckLabelswithPPM((char *)"check.ppm", labels, width, height);
+	slic.PerformSLICO_ForGivenK(img, width, height, labels, numlabels, m_spcount, m_compactness); //for a given number K of superpixels
+
+#ifdef MYMPI
+	if(world_rank==0)
+	{
+#endif
+    auto endTime = Clock::now();
+    auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+    cout <<  "Computing time=" << compTime.count()/1000 << " ms" << endl;
+
+#ifdef SLCT
 	int num = CheckLabelswithPPM(check_name, labels, width, height);
+#else
+	int num = CheckLabelswithPPM((char *)"check.ppm", labels, width, height);
+#endif
 
 	if (num < 0)
 	{
@@ -1127,61 +1165,23 @@ int main(int argc, char **argv)
 		cout << "There are " << num << " points' labels are different from original file." << endl;
 	}
 
-	// slic.SaveSuperpixelLabels2PPM((char *)"output_labels.ppm", labels, width, height);
+#ifdef SLCT
 	slic.SaveSuperpixelLabels2PPM(output_name, labels, width, height);
+#else
+	slic.SaveSuperpixelLabels2PPM((char *)"output_labels.ppm", labels, width, height);
+#endif
+
+#ifdef MYMPI
+	}
+#endif
+
 	if (labels)
 		delete[] labels;
-
 	if (img)
 		delete[] img;
 
-	return 0;
-}
-#else
-int main (int argc, char **argv)
-{
-	unsigned int* img = NULL;
-	int width(0);
-	int height(0);
-
-	LoadPPM((char *)"input_image.ppm", &img, &width, &height);
-	if (width == 0 || height == 0) return -1;
-
-	int sz = width*height;
-	int* labels = new int[sz];
-	int numlabels(0);
-	SLIC slic;
-	int m_spcount;
-	double m_compactness;
-	m_spcount = 400;
-	m_compactness = 10.0;
-    auto startTime = Clock::now();
-#ifdef MYMPI
-	MPI_Init(&argc, &argv);
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-#endif
-	slic.PerformSLICO_ForGivenK(img, width, height, labels, numlabels, m_spcount, m_compactness);//for a given number K of superpixels
 #ifdef MYMPI
 	MPI_Finalize();
-	if(world_rank!=0)
-		exit(0);
 #endif
-    auto endTime = Clock::now();
-    auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
-    cout <<  "Computing time=" << compTime.count()/1000 << " ms" << endl;
-
-	int num = CheckLabelswithPPM((char *)"check.ppm", labels, width, height);
-	if (num < 0) {
-		cout <<  "The result for labels is different from output_labels.ppm." << endl;
-	} else {
-		cout <<  "There are " << num << " points' labels are different from original file." << endl;
-	}
-	
-	slic.SaveSuperpixelLabels2PPM((char *)"output_labels.ppm", labels, width, height);
-	if(labels) delete [] labels;
-	
-	if(img) delete [] img;
-
 	return 0;
 }
-#endif
