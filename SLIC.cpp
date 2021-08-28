@@ -188,7 +188,8 @@ void SLIC::DoRGBtoLABConversion(
 	}
 	/*
 	int mid = sz / 2;
-	MPI_Status status[3];
+	MPI_Status status[6];
+	MPI_Request request[6];
 	if(world_rank==0)
 	{
 		#pragma omp parallel for
@@ -200,9 +201,15 @@ void SLIC::DoRGBtoLABConversion(
 
 			RGB2LAB( r, g, b, lvec[j], avec[j], bvec[j] );
 		}
-		MPI_Sendrecv(lvec,mid,MPI_DOUBLE,1,0,lvec+mid,sz-mid,MPI_DOUBLE,1,1,MPI_COMM_WORLD,&status[0]);
-		MPI_Sendrecv(avec,mid,MPI_DOUBLE,1,2,avec+mid,sz-mid,MPI_DOUBLE,1,3,MPI_COMM_WORLD,&status[1]);
-		MPI_Sendrecv(bvec,mid,MPI_DOUBLE,1,4,bvec+mid,sz-mid,MPI_DOUBLE,1,5,MPI_COMM_WORLD,&status[2]);
+		MPI_Isend(lvec,mid,MPI_DOUBLE,1,0,MPI_COMM_WORLD,&request[0]);
+		MPI_Isend(avec,mid,MPI_DOUBLE,1,2,MPI_COMM_WORLD,&request[1]);
+		MPI_Isend(bvec,mid,MPI_DOUBLE,1,4,MPI_COMM_WORLD,&request[2]);
+		MPI_Irecv(lvec+mid,sz-mid,MPI_DOUBLE,1,1,MPI_COMM_WORLD,&request[3]);
+		MPI_Irecv(avec+mid,sz-mid,MPI_DOUBLE,1,3,MPI_COMM_WORLD,&request[4]);
+		MPI_Irecv(bvec+mid,sz-mid,MPI_DOUBLE,1,5,MPI_COMM_WORLD,&request[5]);
+		// MPI_Sendrecv(lvec,mid,MPI_DOUBLE,1,0,lvec+mid,sz-mid,MPI_DOUBLE,1,1,MPI_COMM_WORLD,&status[0]);
+		// MPI_Sendrecv(avec,mid,MPI_DOUBLE,1,2,avec+mid,sz-mid,MPI_DOUBLE,1,3,MPI_COMM_WORLD,&status[1]);
+		// MPI_Sendrecv(bvec,mid,MPI_DOUBLE,1,4,bvec+mid,sz-mid,MPI_DOUBLE,1,5,MPI_COMM_WORLD,&status[2]);
 	}
 	else
 	{
@@ -215,10 +222,17 @@ void SLIC::DoRGBtoLABConversion(
 
 			RGB2LAB( r, g, b, lvec[j], avec[j], bvec[j] );
 		}
-		MPI_Sendrecv(lvec+mid,sz-mid,MPI_DOUBLE,0,1,lvec,mid,MPI_DOUBLE,0,0,MPI_COMM_WORLD,&status[0]);
-		MPI_Sendrecv(avec+mid,sz-mid,MPI_DOUBLE,0,3,avec,mid,MPI_DOUBLE,0,2,MPI_COMM_WORLD,&status[1]);
-		MPI_Sendrecv(bvec+mid,sz-mid,MPI_DOUBLE,0,5,bvec,mid,MPI_DOUBLE,0,4,MPI_COMM_WORLD,&status[2]);
+		MPI_Isend(lvec+mid,sz-mid,MPI_DOUBLE,0,1,MPI_COMM_WORLD,&request[0]);
+		MPI_Isend(avec+mid,sz-mid,MPI_DOUBLE,0,3,MPI_COMM_WORLD,&request[1]);
+		MPI_Isend(bvec+mid,sz-mid,MPI_DOUBLE,0,5,MPI_COMM_WORLD,&request[2]);
+		MPI_Irecv(lvec,mid,MPI_DOUBLE,0,0,MPI_COMM_WORLD,&request[3]);
+		MPI_Irecv(avec,mid,MPI_DOUBLE,0,2,MPI_COMM_WORLD,&request[4]);
+		MPI_Irecv(bvec,mid,MPI_DOUBLE,0,4,MPI_COMM_WORLD,&request[5]);
+		// MPI_Sendrecv(lvec+mid,sz-mid,MPI_DOUBLE,0,1,lvec,mid,MPI_DOUBLE,0,0,MPI_COMM_WORLD,&status[0]);
+		// MPI_Sendrecv(avec+mid,sz-mid,MPI_DOUBLE,0,3,avec,mid,MPI_DOUBLE,0,2,MPI_COMM_WORLD,&status[1]);
+		// MPI_Sendrecv(bvec+mid,sz-mid,MPI_DOUBLE,0,5,bvec,mid,MPI_DOUBLE,0,4,MPI_COMM_WORLD,&status[2]);
 	}
+	MPI_Waitall(6,request,status);
 	*/
 }
 
