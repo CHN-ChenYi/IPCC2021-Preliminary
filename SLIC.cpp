@@ -1087,40 +1087,79 @@ int CheckLabelswithPPM(char* filename, int* labels, int width, int height)
 ///	The main function
 ///
 //===========================================================================
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
-	unsigned int* img = NULL;
+	unsigned int *img = NULL;
 	int width(0);
 	int height(0);
 
-	LoadPPM((char *)"input_image.ppm", &img, &width, &height);
-	if (width == 0 || height == 0) return -1;
+	//===========================case_switch=================================
+	const int name_len = 100;
+	char input_flag = '1';
+	if (argc == 2)
+		input_flag = argv[1][0];
+	int m_spcount;
+	switch (input_flag)
+	{
+	case '1':
+		m_spcount = 200;
+		break;
+	case '2':
+		m_spcount = 400;
+		break;
+	case '3':
+		m_spcount = 150;
+		break;
+	default:
+		fprintf(stderr, "argument error\n");
+		exit(0);
+		break;
+	}
+	char input_name[name_len], check_name[name_len], output_name[name_len];
+	sprintf(input_name, "case%c/input_image.ppm", input_flag);
+	sprintf(check_name, "case%c/check.ppm", input_flag);
+	sprintf(output_name, "case%c/output_labels.ppm", input_flag);
+	//==========================case_switch_end==============================
 
-	int sz = width*height;
-	int* labels = new int[sz];
+	// LoadPPM((char *)"input_image.ppm", &img, &width, &height);
+	LoadPPM(input_name, &img, &width, &height);
+
+	if (width == 0 || height == 0)
+		return -1;
+
+	int sz = width * height;
+	int *labels = new int[sz];
 	int numlabels(0);
 	SLIC slic;
-	int m_spcount;
+	// int m_spcount;
 	double m_compactness;
-	m_spcount = 200;
+	// m_spcount = 200;
 	m_compactness = 10.0;
-    auto startTime = Clock::now();
-	slic.PerformSLICO_ForGivenK(img, width, height, labels, numlabels, m_spcount, m_compactness);//for a given number K of superpixels
-    auto endTime = Clock::now();
-    auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
-    cout <<  "Computing time=" << compTime.count()/1000 << " ms" << endl;
+	auto startTime = Clock::now();
+	slic.PerformSLICO_ForGivenK(img, width, height, labels, numlabels, m_spcount, m_compactness); //for a given number K of superpixels
+	auto endTime = Clock::now();
+	auto compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+	cout << "Computing time=" << compTime.count() / 1000 << " ms" << endl;
 
-	int num = CheckLabelswithPPM((char *)"check.ppm", labels, width, height);
-	if (num < 0) {
-		cout <<  "The result for labels is different from output_labels.ppm." << endl;
-	} else {
-		cout <<  "There are " << num << " points' labels are different from original file." << endl;
+	// int num = CheckLabelswithPPM((char *)"check.ppm", labels, width, height);
+	int num = CheckLabelswithPPM(check_name, labels, width, height);
+
+	if (num < 0)
+	{
+		cout << "The result for labels is different from output_labels.ppm." << endl;
 	}
-	
-	slic.SaveSuperpixelLabels2PPM((char *)"output_labels.ppm", labels, width, height);
-	if(labels) delete [] labels;
-	
-	if(img) delete [] img;
+	else
+	{
+		cout << "There are " << num << " points' labels are different from original file." << endl;
+	}
+
+	// slic.SaveSuperpixelLabels2PPM((char *)"output_labels.ppm", labels, width, height);
+	slic.SaveSuperpixelLabels2PPM(output_name, labels, width, height);
+	if (labels)
+		delete[] labels;
+
+	if (img)
+		delete[] img;
 
 	return 0;
 }
