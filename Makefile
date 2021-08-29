@@ -1,5 +1,5 @@
 CC = mpicxx
-CCFLAGS = -std=c++11 -O3 -fopenmp -mavx2
+CCFLAGS = -std=c++11 -O3 -fopenmp -march=znver2
 SOURCE = SLIC.cpp SLIC.h
 CASE = 2
 
