@@ -357,10 +357,15 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
     //vector<double> distlab(sz, DBL_MAX);
     double *distxy = (double*)_mm_malloc(sz*sizeof(double),256);
     // not double max but large enough
-    memset(distxy,0x7F,sz*sizeof(double));
+    //memset(distxy,0x7F,sz*sizeof(double));
     double *distlab = (double*)_mm_malloc(sz*sizeof(double),256);
-    memset(distlab,0x7F,sz*sizeof(double));
+    //memset(distlab,0x7F,sz*sizeof(double));
     //vector<double> distvec(sz, DBL_MAX);
+    #pragma omp parallel for
+        for (int i = 0; i < sz; ++i) {
+            distxy[i] = DBL_MAX;
+            distlab[i] = DBL_MAX;
+        }
     double *distvec = (double*)_mm_malloc(sz*sizeof(double),256);
     //double *res_unpack = (double*)_mm_malloc(16*sizeof(double),256);
     //memset(distvec,0x7F,sz*sizeof(double));
@@ -416,6 +421,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 #ifdef PROF
         startTime = Clock::now();
 #endif
+
 #pragma omp parallel for
         for (int i = 0; i < sz; ++i) {
             distvec[i] = DBL_MAX;
