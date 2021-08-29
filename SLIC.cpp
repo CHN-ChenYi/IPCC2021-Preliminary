@@ -47,10 +47,9 @@ const int dx10[10] = {-1, 0, 1, 0, -1, 1, 1, -1, 0, 0};
 const int dy10[10] = {0, -1, 0, 1, -1, -1, 1, 1, 0, 0};
 const int dz10[10] = {0, 0, 0, 0, 0, 0, 0, 0, -1, 1};
 
-#define MYMPI
-
 #ifdef MYMPI
 // For mpi
+int world_size;
 int world_rank;
 #endif
 
@@ -182,60 +181,6 @@ void SLIC::DoRGBtoLABConversion(const unsigned int*& ubuff, double*& lvec,
 
         RGB2LAB(r, g, b, lvec[j], avec[j], bvec[j]);
     }
-    /*
-    int mid = sz / 2;
-    MPI_Status status[6];
-    MPI_Request request[6];
-    if(world_rank==0)
-    {
-            #pragma omp parallel for
-            for( int j = 0; j < mid; j++ )
-            {
-                    int r = (ubuff[j] >> 16) & 0xFF;
-                    int g = (ubuff[j] >>  8) & 0xFF;
-                    int b = (ubuff[j]      ) & 0xFF;
-
-                    RGB2LAB( r, g, b, lvec[j], avec[j], bvec[j] );
-            }
-            MPI_Isend(lvec,mid,MPI_DOUBLE,1,0,MPI_COMM_WORLD,&request[0]);
-            MPI_Isend(avec,mid,MPI_DOUBLE,1,2,MPI_COMM_WORLD,&request[1]);
-            MPI_Isend(bvec,mid,MPI_DOUBLE,1,4,MPI_COMM_WORLD,&request[2]);
-            MPI_Irecv(lvec+mid,sz-mid,MPI_DOUBLE,1,1,MPI_COMM_WORLD,&request[3]);
-            MPI_Irecv(avec+mid,sz-mid,MPI_DOUBLE,1,3,MPI_COMM_WORLD,&request[4]);
-            MPI_Irecv(bvec+mid,sz-mid,MPI_DOUBLE,1,5,MPI_COMM_WORLD,&request[5]);
-            //
-    MPI_Sendrecv(lvec,mid,MPI_DOUBLE,1,0,lvec+mid,sz-mid,MPI_DOUBLE,1,1,MPI_COMM_WORLD,&status[0]);
-            //
-    MPI_Sendrecv(avec,mid,MPI_DOUBLE,1,2,avec+mid,sz-mid,MPI_DOUBLE,1,3,MPI_COMM_WORLD,&status[1]);
-            //
-    MPI_Sendrecv(bvec,mid,MPI_DOUBLE,1,4,bvec+mid,sz-mid,MPI_DOUBLE,1,5,MPI_COMM_WORLD,&status[2]);
-    }
-    else
-    {
-            #pragma omp parallel for
-            for( int j = mid; j < sz; j++ )
-            {
-                    int r = (ubuff[j] >> 16) & 0xFF;
-                    int g = (ubuff[j] >>  8) & 0xFF;
-                    int b = (ubuff[j]      ) & 0xFF;
-
-                    RGB2LAB( r, g, b, lvec[j], avec[j], bvec[j] );
-            }
-            MPI_Isend(lvec+mid,sz-mid,MPI_DOUBLE,0,1,MPI_COMM_WORLD,&request[0]);
-            MPI_Isend(avec+mid,sz-mid,MPI_DOUBLE,0,3,MPI_COMM_WORLD,&request[1]);
-            MPI_Isend(bvec+mid,sz-mid,MPI_DOUBLE,0,5,MPI_COMM_WORLD,&request[2]);
-            MPI_Irecv(lvec,mid,MPI_DOUBLE,0,0,MPI_COMM_WORLD,&request[3]);
-            MPI_Irecv(avec,mid,MPI_DOUBLE,0,2,MPI_COMM_WORLD,&request[4]);
-            MPI_Irecv(bvec,mid,MPI_DOUBLE,0,4,MPI_COMM_WORLD,&request[5]);
-            //
-    MPI_Sendrecv(lvec+mid,sz-mid,MPI_DOUBLE,0,1,lvec,mid,MPI_DOUBLE,0,0,MPI_COMM_WORLD,&status[0]);
-            //
-    MPI_Sendrecv(avec+mid,sz-mid,MPI_DOUBLE,0,3,avec,mid,MPI_DOUBLE,0,2,MPI_COMM_WORLD,&status[1]);
-            //
-    MPI_Sendrecv(bvec+mid,sz-mid,MPI_DOUBLE,0,5,bvec,mid,MPI_DOUBLE,0,4,MPI_COMM_WORLD,&status[2]);
-    }
-    MPI_Waitall(6,request,status);
-    */
 }
 
 //==============================================================================
@@ -448,12 +393,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
         //------
 
 #ifdef PROF
-#ifdef MYMPI
-        if (world_rank == 0)
-#endif
-        {
-            startTime = Clock::now();
-        }
+        startTime = Clock::now();
 #endif
 #pragma omp parallel for
         for (int i = 0; i < sz; ++i) {
@@ -510,16 +450,11 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
         }
 
 #ifdef PROF
-#ifdef MYMPI
-        if (world_rank == 0)
-#endif
-        {
-            endTime = Clock::now();
-            compTime = chrono::duration_cast<chrono::microseconds>(endTime -
-                                                                   startTime);
+        endTime = Clock::now();
+        compTime =
+            chrono::duration_cast<chrono::microseconds>(endTime - startTime);
 
-            cost1 += compTime.count();
-        }
+        cost1 += compTime.count();
 #endif
         //-----------------------------------------------------------------
         // Assign the max color distance for a cluster
@@ -530,12 +465,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
         // 	maxxy.assign(numk,1);
         // }
 #ifdef PROF
-#ifdef MYMPI
-        if (world_rank == 0)
-#endif
-        {
-            startTime = Clock::now();
-        }
+        startTime = Clock::now();
 #endif
 #pragma omp parallel for
         for (int i = 0; i < OMP_NUM_THREADS; ++i) {
@@ -557,27 +487,17 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
                 if (maxxy[i] < _maxxy[j][i]) maxxy[i] = _maxxy[j][i];
             }
 #ifdef PROF
-#ifdef MYMPI
-        if (world_rank == 0)
-#endif
-        {
-            endTime = Clock::now();
-            compTime = chrono::duration_cast<chrono::microseconds>(endTime -
-                                                                   startTime);
+        endTime = Clock::now();
+        compTime =
+            chrono::duration_cast<chrono::microseconds>(endTime - startTime);
 
-            cost2 += compTime.count();
-        }
+        cost2 += compTime.count();
 #endif
         //-----------------------------------------------------------------
         // Recalculate the centroid and store in the seed values
         //-----------------------------------------------------------------
 #ifdef PROF
-#ifdef MYMPI
-        if (world_rank == 0)
-#endif
-        {
-            startTime = Clock::now();
-        }
+        startTime = Clock::now();
 #endif
         sigmal.assign(numk, 0);
         sigmaa.assign(numk, 0);
@@ -621,16 +541,11 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
             }
 
 #ifdef PROF
-#ifdef MYMPI
-        if (world_rank == 0)
-#endif
-        {
-            endTime = Clock::now();
-            compTime = chrono::duration_cast<chrono::microseconds>(endTime -
-                                                                   startTime);
+        endTime = Clock::now();
+        compTime =
+            chrono::duration_cast<chrono::microseconds>(endTime - startTime);
 
-            cost3 += compTime.count();
-        }
+        cost3 += compTime.count();
 #endif
 
 #pragma omp parallel
@@ -659,17 +574,18 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
     }
 
 #ifdef PROF
+    cout << world_rank << ":Part1 time=" << cost1 / 1000 << " ms" << endl;
+    cout << world_rank << ":Part2 time=" << cost2 / 1000 << " ms" << endl;
+    cout << world_rank << ":Part3 time=" << cost3 / 1000 << " ms" << endl;
 #ifdef MYMPI
-    if (world_rank == 0)
+    if (!world_rank) {
 #endif
-    {
-        cout << "Part1 time=" << cost1 / 1000 << " ms" << endl;
-        cout << "Part2 time=" << cost2 / 1000 << " ms" << endl;
-        cout << "Part3 time=" << cost3 / 1000 << " ms" << endl;
         printf("sz = %d\n", sz);
         printf("numk = %d\n", numk);
         printf("ccnt = %lld\n", ccnt);
+#ifdef MYMPI
     }
+#endif
 #endif
 
     delete[] distidx;
@@ -728,8 +644,8 @@ void SLIC::SaveSuperpixelLabels2PPM(char* filename, int* labels,
 ///
 ///		1. finding an adjacent label for each new component at the start
 ///		2. if a certain component is too small, assigning the previously
-/// found 		    adjacent label to this component, and not incrementing the
-/// label.
+/// found 		    adjacent label to this component, and not
+/// incrementing the label.
 //===========================================================================
 void SLIC::EnforceLabelConnectivity(
     const int* labels,  // input labels that need to be corrected to remove
@@ -851,12 +767,7 @@ void SLIC::PerformSLICO_ForGivenK(
 #ifdef PROF
     chrono::time_point<std::chrono::high_resolution_clock> startTime, endTime;
     chrono::microseconds compTime;
-#ifdef MYMPI
-    if (world_rank == 0)
-#endif
-    {
-        startTime = Clock::now();
-    }
+    startTime = Clock::now();
 #endif
     if (1)  // LAB
     {
@@ -873,53 +784,33 @@ void SLIC::PerformSLICO_ForGivenK(
         }
     }
 #ifdef PROF
-#ifdef MYMPI
-    if (world_rank == 0)
-#endif
-    {
-        endTime = Clock::now();
-        compTime =
-            chrono::duration_cast<chrono::microseconds>(endTime - startTime);
-        cout << "DoRGBtoLABConversion time=" << compTime.count() / 1000 << " ms"
-             << endl;
-    }
+    endTime = Clock::now();
+    compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+    cout << world_rank
+         << ":DoRGBtoLABConversion time=" << compTime.count() / 1000 << " ms"
+         << endl;
 #endif
     //--------------------------------------------------
 
     bool perturbseeds(true);
     vector<double> edgemag(0);
 #ifdef PROF
-#ifdef MYMPI
-    if (world_rank == 0)
-#endif
-    {
-        startTime = Clock::now();
-    }
+    startTime = Clock::now();
 #endif
     if (perturbseeds)
         DetectLabEdges(m_lvec, m_avec, m_bvec, m_width, m_height, edgemag);
     GetLABXYSeeds_ForGivenK(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, K,
                             perturbseeds, edgemag);
 #ifdef PROF
-#ifdef MYMPI
-    if (world_rank == 0)
-#endif
-    {
-        endTime = Clock::now();
-        compTime =
-            chrono::duration_cast<chrono::microseconds>(endTime - startTime);
-        cout << "GetLABXYSeeds_ForGivenK time=" << compTime.count() / 1000
-             << " ms" << endl;
-    }
+    endTime = Clock::now();
+    compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+    cout << world_rank
+         << ":GetLABXYSeeds_ForGivenK time=" << compTime.count() / 1000 << " ms"
+         << endl;
 #endif
 
 #ifdef PROF
-#ifdef MYMPI
-    if (world_rank == 0)
-#endif
-    {
-        startTime = Clock::now();
-    }
+    startTime = Clock::now();
 #endif
     int STEP =
         sqrt(double(sz) / double(K)) +
@@ -928,26 +819,15 @@ void SLIC::PerformSLICO_ForGivenK(
         kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, klabels, STEP, 10);
     numlabels = kseedsl.size();
 #ifdef PROF
-#ifdef MYMPI
-    if (world_rank == 0)
-#endif
-    {
-        endTime = Clock::now();
-        compTime =
-            chrono::duration_cast<chrono::microseconds>(endTime - startTime);
-        cout << "PerformSuperpixelSegmentation_VariableSandM time="
-             << compTime.count() / 1000 << " ms" << endl;
-    }
+    endTime = Clock::now();
+    compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+    cout << world_rank << ":PerformSuperpixelSegmentation_VariableSandM time="
+         << compTime.count() / 1000 << " ms" << endl;
 #endif
 
     int* nlabels = new int[sz];
 #ifdef PROF
-#ifdef MYMPI
-    if (world_rank == 0)
-#endif
-    {
-        startTime = Clock::now();
-    }
+    startTime = Clock::now();
 #endif
     EnforceLabelConnectivity(klabels, m_width, m_height, nlabels, numlabels, K);
     {
@@ -955,16 +835,11 @@ void SLIC::PerformSLICO_ForGivenK(
         // for(int i = 0; i < sz; i++) klabels[i] = nlabels[i];
     }
 #ifdef PROF
-#ifdef MYMPI
-    if (world_rank == 0)
-#endif
-    {
-        endTime = Clock::now();
-        compTime =
-            chrono::duration_cast<chrono::microseconds>(endTime - startTime);
-        cout << "EnforceLabelConnectivity time=" << compTime.count() / 1000
-             << " ms" << endl;
-    }
+    endTime = Clock::now();
+    compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
+    cout << world_rank
+         << ":EnforceLabelConnectivity time=" << compTime.count() / 1000
+         << " ms" << endl;
 #endif
     if (nlabels) delete[] nlabels;
 }
@@ -1081,6 +956,7 @@ int main(int argc, char** argv) {
 #ifdef MYMPI
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 #endif
     unsigned int* img = NULL;
     int width(0);
@@ -1134,7 +1010,7 @@ int main(int argc, char** argv) {
         m_compactness);  // for a given number K of superpixels
 
 #ifdef MYMPI
-    if (world_rank == 0) {
+    if (!world_rank) {
 #endif
         auto endTime = Clock::now();
         auto compTime =
