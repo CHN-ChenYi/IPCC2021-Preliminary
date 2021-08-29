@@ -1,7 +1,7 @@
 CC = mpicxx
 CCFLAGS = -std=c++11 -O3 -fopenmp -mavx2
 SOURCE = SLIC.cpp SLIC.h
-CASE = 1
+CASE = 2
 
 main : $(SOURCE)
 	$(CC) $(CCFLAGS) -o SLIC $<
@@ -22,7 +22,7 @@ gprof : $(SOURCE)
 	$(CC) $(CCFLAGS) -pg -o SLIC $<
 
 run :
-	sbatch script.slurm --export=CASE=$(CASE)
+	sbatch script.slurm $(CASE)
 	squeue
 
 clean :

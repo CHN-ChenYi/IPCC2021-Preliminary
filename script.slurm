@@ -6,4 +6,4 @@
 #SBATCH --cpus-per-task=64
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-mpirun --bind-to none ./SLIC $CASE
+mpirun --bind-to none ./SLIC $1

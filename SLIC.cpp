@@ -47,11 +47,8 @@ const int dx10[10] = {-1, 0, 1, 0, -1, 1, 1, -1, 0, 0};
 const int dy10[10] = {0, -1, 0, 1, -1, -1, 1, 1, 0, 0};
 const int dz10[10] = {0, 0, 0, 0, 0, 0, 0, 0, -1, 1};
 
-#ifdef MYMPI
-// For mpi
 int world_size;
 int world_rank;
-#endif
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -642,7 +639,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 
 #ifdef MYMPI
 #ifdef PROF
-        mpi_start_time = Clock::now();
+    mpi_start_time = Clock::now();
 #endif
     if (!world_rank) {
         MPI_Recv(klabels + sz_end, sz - sz_end, MPI_INT, 1, 0, MPI_COMM_WORLD,
@@ -651,12 +648,12 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
         MPI_Send(klabels + sz_start, sz_end - sz_start, MPI_INT, 0, 0,
                  MPI_COMM_WORLD);
     }
-    // node 1's data is wrong in the following process
+    // node 1's data will be wrong in the following process
 #ifdef PROF
-        mpi_end_time = Clock::now();
-        mpi_comp_time = chrono::duration_cast<chrono::microseconds>(
-            mpi_end_time - mpi_start_time);
-        mpi_cost += mpi_comp_time.count();
+    mpi_end_time = Clock::now();
+    mpi_comp_time = chrono::duration_cast<chrono::microseconds>(mpi_end_time -
+                                                                mpi_start_time);
+    mpi_cost += mpi_comp_time.count();
 #endif
 #endif
 
@@ -1060,12 +1057,15 @@ int main(int argc, char** argv) {
     switch (input_flag) {
         case '1':
             m_spcount = 200;
+            printf("CASE = 1\n");
             break;
         case '2':
             m_spcount = 400;
+            printf("CASE = 2\n");
             break;
         case '3':
             m_spcount = 150;
+            printf("CASE = 3\n");
             break;
         default:
             fprintf(stderr, "argument error\n");
