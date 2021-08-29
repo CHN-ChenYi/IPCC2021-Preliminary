@@ -69,12 +69,13 @@ private:
 	// SLICO (SLIC Zero) varies only M dynamicaly, not S.
 	//============================================================================
 	void PerformSuperpixelSegmentation_VariableSandM(
-		vector<double>&				kseedsl,
-		vector<double>&				kseedsa,
-		vector<double>&				kseedsb,
-		vector<double>&				kseedsx,
-		vector<double>&				kseedsy,
+		double*						kseedsl,
+		double*						kseedsa,
+		double*						kseedsb,
+		double*						kseedsx,
+		double*						kseedsy,
 		int*						klabels,
+		const int					numk,
 		const int&					STEP,
 		const int&					NUMITR);
 
@@ -82,11 +83,12 @@ private:
 	// Pick seeds for superpixels when number of superpixels is input.
 	//============================================================================
 	void GetLABXYSeeds_ForGivenK(
-		vector<double>&				kseedsl,
-		vector<double>&				kseedsa,
-		vector<double>&				kseedsb,
-		vector<double>&				kseedsx,
-		vector<double>&				kseedsy,
+		double*						kseedsl,
+		double*						kseedsa,
+		double*						kseedsb,
+		double*						kseedsx,
+		double*						kseedsy,
+		int&						numk,
 		const int&					STEP,
 		const bool&					perturbseeds,
 		const vector<double>&		edges);
@@ -95,11 +97,12 @@ private:
 	// Move the seeds to low gradient positions to avoid putting seeds at region boundaries.
 	//============================================================================
 	void PerturbSeeds(
-		vector<double>&				kseedsl,
-		vector<double>&				kseedsa,
-		vector<double>&				kseedsb,
-		vector<double>&				kseedsx,
-		vector<double>&				kseedsy,
+		double*						kseedsl,
+		double*						kseedsa,
+		double*						kseedsb,
+		double*						kseedsx,
+		double*						kseedsy,
+		const int					numseeds,
 		const vector<double>&		edges);
 	
 	//============================================================================

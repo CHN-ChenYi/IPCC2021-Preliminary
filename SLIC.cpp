@@ -25,6 +25,7 @@
 
 #include <mpi.h>
 #include <omp.h>
+#include <immintrin.h>
 
 #include <cfloat>
 #include <chrono>
@@ -215,13 +216,11 @@ void SLIC::DetectLabEdges(const double* lvec, const double* avec,
 //===========================================================================
 ///	PerturbSeeds
 //===========================================================================
-void SLIC::PerturbSeeds(vector<double>& kseedsl, vector<double>& kseedsa,
-                        vector<double>& kseedsb, vector<double>& kseedsx,
-                        vector<double>& kseedsy, const vector<double>& edges) {
+void SLIC::PerturbSeeds(double* kseedsl, double* kseedsa,
+                        double* kseedsb, double* kseedsx,
+                        double* kseedsy, const int numseeds, const vector<double>& edges) {
     const int dx8[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
     const int dy8[8] = {0, -1, -1, -1, 0, 1, 1, 1};
-
-    int numseeds = kseedsl.size();
 
     for (int n = 0; n < numseeds; n++) {
         int ox = kseedsx[n];  // original x
@@ -256,16 +255,18 @@ void SLIC::PerturbSeeds(vector<double>& kseedsl, vector<double>& kseedsa,
 /// The k seed values are taken as uniform spatial pixel samples.
 //===========================================================================
 void SLIC::GetLABXYSeeds_ForGivenK(
-    vector<double>& kseedsl, vector<double>& kseedsa, vector<double>& kseedsb,
-    vector<double>& kseedsx, vector<double>& kseedsy, const int& K,
+    double* kseedsl, double* kseedsa, double* kseedsb,
+    double* kseedsx, double* kseedsy, int& numk, const int& K,
     const bool& perturbseeds, const vector<double>& edgemag) {
+    
+    numk=0;
     int sz = m_width * m_height;
     double step = sqrt(double(sz) / double(K));
     int T = step;
     int xoff = step / 2;
     int yoff = step / 2;
 
-    int n(0);
+    //int n(0);
     int r(0);
     for (int y = 0; y < m_height; y++) {
         int Y = y * step + yoff;
@@ -280,23 +281,24 @@ void SLIC::GetLABXYSeeds_ForGivenK(
 
             //_ASSERT(n < K);
 
-            // kseedsl[n] = m_lvec[i];
-            // kseedsa[n] = m_avec[i];
-            // kseedsb[n] = m_bvec[i];
-            // kseedsx[n] = X;
-            // kseedsy[n] = Y;
-            kseedsl.push_back(m_lvec[i]);
-            kseedsa.push_back(m_avec[i]);
-            kseedsb.push_back(m_bvec[i]);
-            kseedsx.push_back(X);
-            kseedsy.push_back(Y);
-            n++;
+            kseedsl[numk] = m_lvec[i];
+            kseedsa[numk] = m_avec[i];
+            kseedsb[numk] = m_bvec[i];
+            kseedsx[numk] = X;
+            kseedsy[numk] = Y;
+            ++numk;
+            // kseedsl.push_back(m_lvec[i]);
+            // kseedsa.push_back(m_avec[i]);
+            // kseedsb.push_back(m_bvec[i]);
+            // kseedsx.push_back(X);
+            // kseedsy.push_back(Y);
+            //n++;
         }
         r++;
     }
 
     if (perturbseeds) {
-        PerturbSeeds(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, edgemag);
+        PerturbSeeds(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, numk, edgemag);
     }
 }
 
@@ -319,11 +321,11 @@ void SLIC::GetLABXYSeeds_ForGivenK(
 /// not the step size S.
 //===========================================================================
 void SLIC::PerformSuperpixelSegmentation_VariableSandM(
-    vector<double>& kseedsl, vector<double>& kseedsa, vector<double>& kseedsb,
-    vector<double>& kseedsx, vector<double>& kseedsy, int* klabels,
+    double* kseedsl, double* kseedsa, double* kseedsb,
+    double* kseedsx, double* kseedsy, int* klabels, const int numk,
     const int& STEP, const int& NUMITR) {
     int sz = m_width * m_height;
-    const int numk = kseedsl.size();
+    // const int numk = kseedsl.size();
     // double cumerr(99999.9);
     int numitr(0);
 #ifdef MYMPI
@@ -835,11 +837,14 @@ void SLIC::PerformSLICO_ForGivenK(
     const int& K,     // required number of superpixels
     const double& m)  // weight given to spatial distance
 {
-    vector<double> kseedsl(0);
-    vector<double> kseedsa(0);
-    vector<double> kseedsb(0);
-    vector<double> kseedsx(0);
-    vector<double> kseedsy(0);
+    // vector<double> kseedsl(0);
+    // vector<double> kseedsa(0);
+    // vector<double> kseedsb(0);
+    // vector<double> kseedsx(0);
+    // vector<double> kseedsy(0);
+
+    double *kseedsl, *kseedsa, *kseedsb, *kseedsx, *kseedsy;
+
 
     //--------------------------------------------------
     m_width = width;
@@ -850,6 +855,13 @@ void SLIC::PerformSLICO_ForGivenK(
     memset(klabels, -1, sizeof(int) * sz);
     // for( int s = 0; s < sz; s++ ) klabels[s] = -1;
     //--------------------------------------------------
+
+    double step = sqrt(double(sz) / double(K));
+    kseedsl=(double*)_mm_malloc((m_width/step+1)*(m_height/step+1)*sizeof(double),256);
+    kseedsa=(double*)_mm_malloc((m_width/step+1)*(m_height/step+1)*sizeof(double),256);
+    kseedsb=(double*)_mm_malloc((m_width/step+1)*(m_height/step+1)*sizeof(double),256);
+    kseedsx=(double*)_mm_malloc((m_width/step+1)*(m_height/step+1)*sizeof(double),256);
+    kseedsy=(double*)_mm_malloc((m_width/step+1)*(m_height/step+1)*sizeof(double),256);
 
 #ifdef PROF
     chrono::time_point<std::chrono::high_resolution_clock> startTime, endTime;
@@ -886,7 +898,8 @@ void SLIC::PerformSLICO_ForGivenK(
 #endif
     if (perturbseeds)
         DetectLabEdges(m_lvec, m_avec, m_bvec, m_width, m_height, edgemag);
-    GetLABXYSeeds_ForGivenK(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, K,
+
+    GetLABXYSeeds_ForGivenK(kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, numlabels, K,
                             perturbseeds, edgemag);
 #ifdef PROF
     endTime = Clock::now();
@@ -903,14 +916,20 @@ void SLIC::PerformSLICO_ForGivenK(
         sqrt(double(sz) / double(K)) +
         2.0;  // adding a small value in the even the STEP size is too small.
     PerformSuperpixelSegmentation_VariableSandM(
-        kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, klabels, STEP, 10);
-    numlabels = kseedsl.size();
+        kseedsl, kseedsa, kseedsb, kseedsx, kseedsy, klabels, numlabels, STEP, 10);
+    //numlabels = kseedsl.size();
 #ifdef PROF
     endTime = Clock::now();
     compTime = chrono::duration_cast<chrono::microseconds>(endTime - startTime);
     cout << world_rank << ":PerformSuperpixelSegmentation_VariableSandM time="
          << compTime.count() / 1000 << " ms" << endl;
 #endif
+
+    _mm_free(kseedsl);
+    _mm_free(kseedsa);
+    _mm_free(kseedsb);
+    _mm_free(kseedsx);
+    _mm_free(kseedsy);
 
     int* nlabels = new int[sz];
 #ifdef PROF
