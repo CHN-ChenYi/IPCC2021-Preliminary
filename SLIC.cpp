@@ -89,31 +89,20 @@ SLIC::~SLIC() {
     }
 }
 
+double look_up_table[256];
+
 //==============================================================================
 ///	RGB2XYZ
 ///
 /// sRGB (D65 illuninant assumption) to XYZ conversion
 //==============================================================================
-void SLIC::RGB2XYZ(const int& sR, const int& sG, const int& sB, double& X,
-                   double& Y, double& Z) {
-    double R = sR / 255.0;
-    double G = sG / 255.0;
-    double B = sB / 255.0;
+inline void SLIC::RGB2XYZ(const int& sR, const int& sG, const int& sB, double& X,
+                   double& Y, double& Z)
+{
 
-    double r, g, b;
-
-    if (R <= 0.04045)
-        r = R / 12.92;
-    else
-        r = pow((R + 0.055) / 1.055, 2.4);
-    if (G <= 0.04045)
-        g = G / 12.92;
-    else
-        g = pow((G + 0.055) / 1.055, 2.4);
-    if (B <= 0.04045)
-        b = B / 12.92;
-    else
-        b = pow((B + 0.055) / 1.055, 2.4);
+    double r = look_up_table[sR];
+    double g = look_up_table[sG];
+    double b = look_up_table[sB];
 
     X = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
     Y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
@@ -134,8 +123,8 @@ void SLIC::RGB2LAB(const int& sR, const int& sG, const int& sB, double& lval,
     //------------------------
     // XYZ to LAB conversion
     //------------------------
-    double epsilon = 0.008856;  // actual CIE standard
-    double kappa = 903.3;       // actual CIE standard
+    const double epsilon = 0.008856;  // actual CIE standard
+    const double kappa = 903.3;       // actual CIE standard
 
     double Xr = 0.950456;  // reference white
     double Yr = 1.0;       // reference white
@@ -147,15 +136,18 @@ void SLIC::RGB2LAB(const int& sR, const int& sG, const int& sB, double& lval,
 
     double fx, fy, fz;
     if (xr > epsilon)
-        fx = pow(xr, 1.0 / 3.0);
+        // fx = pow(xr, 1.0 / 3.0);
+        fx = cbrt(xr);
     else
         fx = (kappa * xr + 16.0) / 116.0;
     if (yr > epsilon)
-        fy = pow(yr, 1.0 / 3.0);
+        // fy = pow(yr, 1.0 / 3.0);
+        fy = cbrt(yr);
     else
         fy = (kappa * yr + 16.0) / 116.0;
     if (zr > epsilon)
-        fz = pow(zr, 1.0 / 3.0);
+        // fz = pow(zr, 1.0 / 3.0);
+        fz = cbrt(zr);
     else
         fz = (kappa * zr + 16.0) / 116.0;
 
@@ -175,6 +167,15 @@ void SLIC::DoRGBtoLABConversion(const unsigned int*& ubuff, double*& lvec,
     lvec = (double*)_mm_malloc(sz*sizeof(double),256);
     avec = (double*)_mm_malloc(sz*sizeof(double),256);
     bvec = (double*)_mm_malloc(sz*sizeof(double),256);
+
+#pragma omp parallel for    
+    for(int i=0; i<256; ++i)
+    {
+        if(i<=10)
+            look_up_table[i] = i / 255.0 / 12.92;
+        else
+            look_up_table[i] = pow((i / 255.0 + 0.055) / 1.055, 2.4);
+    }
 
 #pragma omp parallel for
     for (int j = 0; j < sz; j++) {
@@ -1235,7 +1236,7 @@ int main(int argc, char** argv) {
         cout << "Computing time=" << compTime.count() / 1000 << " ms" << endl;
 
 #ifdef SLCT
-        int num = CheckLabelswithPPM(check_name, labels, width, height);
+    int num = CheckLabelswithPPM(check_name, labels, width, height);
 #else
     int num = CheckLabelswithPPM((char*)"check.ppm", labels, width, height);
 #endif
@@ -1249,7 +1250,7 @@ int main(int argc, char** argv) {
         }
 
 #ifdef SLCT
-        slic.SaveSuperpixelLabels2PPM(output_name, labels, width, height);
+    slic.SaveSuperpixelLabels2PPM(output_name, labels, width, height);
 #else
     slic.SaveSuperpixelLabels2PPM((char*)"output_labels.ppm", labels, width,
                                   height);
