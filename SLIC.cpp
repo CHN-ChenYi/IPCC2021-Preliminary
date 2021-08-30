@@ -127,12 +127,12 @@ void SLIC::RGB2LAB(const int& sR, const int& sG, const int& sB, double& lval,
     const double kappa = 903.3;       // actual CIE standard
 
     double Xr = 0.950456;  // reference white
-    double Yr = 1.0;       // reference white
+    // double Yr = 1.0;    // reference white
     double Zr = 1.088754;  // reference white
 
-    double xr = X / Xr;
-    double yr = Y / Yr;
-    double zr = Z / Zr;
+    const double xr = X / Xr;
+    const double yr = Y;
+    const double zr = Z / Zr;
 
     double fx, fy, fz;
     if (xr > epsilon)
