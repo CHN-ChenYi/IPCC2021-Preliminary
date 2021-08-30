@@ -51,7 +51,7 @@ const int dy10[10] = {0, -1, 0, 1, -1, -1, 1, 1, 0, 0};
 const int dz10[10] = {0, 0, 0, 0, 0, 0, 0, 0, -1, 1};
 
 // For simd permute
-const __m256i K_PERM = _mm256_setr_epi32(1, 3, 5, 7, 0, 2, 4, 6);
+const __m256i K_PERM_VEC = _mm256_setr_epi32(1, 3, 5, 7, 0, 2, 4, 6);
 
 int world_size;
 int world_rank;
@@ -532,7 +532,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
                         distvec_vec = _mm256_blendv_pd(distvec_vec, dist_vec, cmp_res_vec);
                         _mm256_store_pd(&distvec[i], distvec_vec);
 
-                        __m256i permuted_vec = _mm256_permutevar8x32_epi32(_mm256_castpd_si256(cmp_res_vec), K_PERM);
+                        __m256i permuted_vec = _mm256_permutevar8x32_epi32(_mm256_castpd_si256(cmp_res_vec), K_PERM_VEC);
                         __m128i cmp_int_vec = _mm256_castsi256_si128(permuted_vec);
 
                         // __m256 cmp_ps_vec = _mm256_castpd_ps(cmp_res_vec);
