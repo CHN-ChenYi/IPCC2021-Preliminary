@@ -862,8 +862,196 @@ void SLIC::EnforceLabelConnectivity(
     int* yvec = new int[sz];
     int oindex(0);
     int adjlabel(0);  // adjacent label
-    for (int j = 0; j < height; j++)
+    // unroll for j=0
     {
+// unroll for k=0
+        {
+            if (0 > nlabels[oindex]) {
+                nlabels[oindex] = label;
+                //--------------------
+                // Start a new segment
+                //--------------------
+                xvec[0] = 0;
+                yvec[0] = 0;
+                //-------------------------------------------------------
+                // Quickly find an adjacent label for use later if needed
+                //-------------------------------------------------------
+                {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[0] + dx4[n];
+                        int y = yvec[0] + dy4[n];
+                        if ((x >= 0) && (y >= 0)){
+                            int nindex = y * width + x;
+                            if (nlabels[nindex] >= 0)
+                                adjlabel = nlabels[nindex];
+                        }
+                    }
+                }
+
+                int count(1);
+                for (int c = 0; c < count; c++) {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[c] + dx4[n];
+                        int y = yvec[c] + dy4[n];
+
+                        if ((x >= 0) && (y >= 0)) {
+                            int nindex = y * width + x;
+
+                            if (0 > nlabels[nindex] &&
+                                labels[oindex] == labels[nindex]) {
+                                xvec[count] = x;
+                                yvec[count] = y;
+                                nlabels[nindex] = label;
+                                count++;
+                            }
+                        }
+                    }
+                }
+                //-------------------------------------------------------
+                // If segment size is less then a limit, assign an
+                // adjacent label found before, and decrement label count.
+                //-------------------------------------------------------
+                if (count <= SUPSZ >> 2) {
+                    for (int c = 0; c < count; c++) {
+                        int ind = yvec[c] * width + xvec[c];
+                        nlabels[ind] = adjlabel;
+                    }
+                    label--;
+                }
+                label++;
+            }
+            oindex++;
+        }
+
+        for (int k = 1; k < width-1; k++) 
+        {
+            if (0 > nlabels[oindex]) {
+                nlabels[oindex] = label;
+                //--------------------
+                // Start a new segment
+                //--------------------
+                xvec[0] = k;
+                yvec[0] = 0;
+                //-------------------------------------------------------
+                // Quickly find an adjacent label for use later if needed
+                //-------------------------------------------------------
+                {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[0] + dx4[n];
+                        int y = yvec[0] + dy4[n];
+                        // if ((x >= 0 && x < width) && (y >= 0 && y < height)) {
+                        if (y >= 0) {
+                            int nindex = y * width + x;
+                            if (nlabels[nindex] >= 0)
+                                adjlabel = nlabels[nindex];
+                        }
+                    }
+                }
+
+                int count(1);
+                for (int c = 0; c < count; c++) {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[c] + dx4[n];
+                        int y = yvec[c] + dy4[n];
+
+                        // if ((x >= 0 && x < width) && (y >= 0 && y < height)) {
+                        if (y >= 0) {
+                            int nindex = y * width + x;
+
+                            if (0 > nlabels[nindex] &&
+                                labels[oindex] == labels[nindex]) {
+                                xvec[count] = x;
+                                yvec[count] = y;
+                                nlabels[nindex] = label;
+                                count++;
+                            }
+                        }
+                    }
+                }
+                //-------------------------------------------------------
+                // If segment size is less then a limit, assign an
+                // adjacent label found before, and decrement label count.
+                //-------------------------------------------------------
+                if (count <= SUPSZ >> 2) {
+                    for (int c = 0; c < count; c++) {
+                        int ind = yvec[c] * width + xvec[c];
+                        nlabels[ind] = adjlabel;
+                    }
+                    label--;
+                }
+                label++;
+            }
+            oindex++;
+        }
+        // unroll for k=width-1
+        {
+            if (0 > nlabels[oindex]) {
+                nlabels[oindex] = label;
+                //--------------------
+                // Start a new segment
+                //--------------------
+                xvec[0] = width-1;
+                yvec[0] = 0;
+                //-------------------------------------------------------
+                // Quickly find an adjacent label for use later if needed
+                //-------------------------------------------------------
+                {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[0] + dx4[n];
+                        int y = yvec[0] + dy4[n];
+                        if ((x < width) && (y >= 0)) {
+                            int nindex = y * width + x;
+                            if (nlabels[nindex] >= 0)
+                                adjlabel = nlabels[nindex];
+                        }
+                    }
+                }
+
+                int count(1);
+                for (int c = 0; c < count; c++) {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[c] + dx4[n];
+                        int y = yvec[c] + dy4[n];
+
+                        if ((x < width) && (y >= 0)) {
+                            int nindex = y * width + x;
+
+                            if (0 > nlabels[nindex] &&
+                                labels[oindex] == labels[nindex]) {
+                                xvec[count] = x;
+                                yvec[count] = y;
+                                nlabels[nindex] = label;
+                                count++;
+                            }
+                        }
+                    }
+                }
+                //-------------------------------------------------------
+                // If segment size is less then a limit, assign an
+                // adjacent label found before, and decrement label count.
+                //-------------------------------------------------------
+                if (count <= SUPSZ >> 2) {
+                    for (int c = 0; c < count; c++) {
+                        int ind = yvec[c] * width + xvec[c];
+                        nlabels[ind] = adjlabel;
+                    }
+                    label--;
+                }
+                label++;
+            }
+            oindex++;
+        }
+    }
+
+    for (int j = 1; j < height-1; j++)
+    {
+        // unroll for k=0
         {
             if (0 > nlabels[oindex]) {
                 nlabels[oindex] = label;
@@ -880,7 +1068,7 @@ void SLIC::EnforceLabelConnectivity(
                     for (int n = 0; n < 4; n++) {
                         int x = xvec[0] + dx4[n];
                         int y = yvec[0] + dy4[n];
-                        if ((x >= 0 && x < width) && (y >= 0 && y < height)){
+                        if ((x >= 0)){
                             int nindex = y * width + x;
                             if (nlabels[nindex] >= 0)
                                 adjlabel = nlabels[nindex];
@@ -895,7 +1083,7 @@ void SLIC::EnforceLabelConnectivity(
                         int x = xvec[c] + dx4[n];
                         int y = yvec[c] + dy4[n];
 
-                        if ((x >= 0 && x < width) && (y >= 0 && y < height)) {
+                        if ((x >= 0)) {
                             int nindex = y * width + x;
 
                             if (0 > nlabels[nindex] &&
@@ -942,7 +1130,8 @@ void SLIC::EnforceLabelConnectivity(
                         int x = xvec[0] + dx4[n];
                         int y = yvec[0] + dy4[n];
                         // if ((x >= 0 && x < width) && (y >= 0 && y < height)) {
-                        if (y >= 0 && y < height) {
+                        //if (y >= 0 && y < height) {
+                        {
                             int nindex = y * width + x;
                             if (nlabels[nindex] >= 0)
                                 adjlabel = nlabels[nindex];
@@ -958,7 +1147,8 @@ void SLIC::EnforceLabelConnectivity(
                         int y = yvec[c] + dy4[n];
 
                         // if ((x >= 0 && x < width) && (y >= 0 && y < height)) {
-                        if (y >= 0 && y < height) {
+                        // if (y >= 0 && y < height) {
+                        {
                             int nindex = y * width + x;
 
                             if (0 > nlabels[nindex] &&
@@ -986,7 +1176,7 @@ void SLIC::EnforceLabelConnectivity(
             }
             oindex++;
         }
-
+        // unroll for k=width-1
         {
             if (0 > nlabels[oindex]) {
                 nlabels[oindex] = label;
@@ -1003,7 +1193,7 @@ void SLIC::EnforceLabelConnectivity(
                     for (int n = 0; n < 4; n++) {
                         int x = xvec[0] + dx4[n];
                         int y = yvec[0] + dy4[n];
-                        if ((x >= 0 && x < width) && (y >= 0 && y < height)) {
+                        if ((x < width)) {
                             int nindex = y * width + x;
                             if (nlabels[nindex] >= 0)
                                 adjlabel = nlabels[nindex];
@@ -1018,7 +1208,7 @@ void SLIC::EnforceLabelConnectivity(
                         int x = xvec[c] + dx4[n];
                         int y = yvec[c] + dy4[n];
 
-                        if ((x >= 0 && x < width) && (y >= 0 && y < height)) {
+                        if ((x < width)) {
                             int nindex = y * width + x;
 
                             if (0 > nlabels[nindex] &&
@@ -1047,6 +1237,192 @@ void SLIC::EnforceLabelConnectivity(
             oindex++;
         }
 
+    }
+    // unroll for j=height-1
+    {
+        // unroll for k=0
+        {
+            if (0 > nlabels[oindex]) {
+                nlabels[oindex] = label;
+                //--------------------
+                // Start a new segment
+                //--------------------
+                xvec[0] = 0;
+                yvec[0] = height-1;
+                //-------------------------------------------------------
+                // Quickly find an adjacent label for use later if needed
+                //-------------------------------------------------------
+                {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[0] + dx4[n];
+                        int y = yvec[0] + dy4[n];
+                        if ((x >= 0) && (y < height)){
+                            int nindex = y * width + x;
+                            if (nlabels[nindex] >= 0)
+                                adjlabel = nlabels[nindex];
+                        }
+                    }
+                }
+
+                int count(1);
+                for (int c = 0; c < count; c++) {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[c] + dx4[n];
+                        int y = yvec[c] + dy4[n];
+
+                        if ((x >= 0) && (y < height)) {
+                            int nindex = y * width + x;
+
+                            if (0 > nlabels[nindex] &&
+                                labels[oindex] == labels[nindex]) {
+                                xvec[count] = x;
+                                yvec[count] = y;
+                                nlabels[nindex] = label;
+                                count++;
+                            }
+                        }
+                    }
+                }
+                //-------------------------------------------------------
+                // If segment size is less then a limit, assign an
+                // adjacent label found before, and decrement label count.
+                //-------------------------------------------------------
+                if (count <= SUPSZ >> 2) {
+                    for (int c = 0; c < count; c++) {
+                        int ind = yvec[c] * width + xvec[c];
+                        nlabels[ind] = adjlabel;
+                    }
+                    label--;
+                }
+                label++;
+            }
+            oindex++;
+        }
+
+        for (int k = 1; k < width-1; k++) 
+        {
+            if (0 > nlabels[oindex]) {
+                nlabels[oindex] = label;
+                //--------------------
+                // Start a new segment
+                //--------------------
+                xvec[0] = k;
+                yvec[0] = height-1;
+                //-------------------------------------------------------
+                // Quickly find an adjacent label for use later if needed
+                //-------------------------------------------------------
+                {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[0] + dx4[n];
+                        int y = yvec[0] + dy4[n];
+                        // if ((x >= 0 && x < width) && (y >= 0 && y < height)) {
+                        if (y < height) {
+                            int nindex = y * width + x;
+                            if (nlabels[nindex] >= 0)
+                                adjlabel = nlabels[nindex];
+                        }
+                    }
+                }
+
+                int count(1);
+                for (int c = 0; c < count; c++) {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[c] + dx4[n];
+                        int y = yvec[c] + dy4[n];
+
+                        // if ((x >= 0 && x < width) && (y >= 0 && y < height)) {
+                        if (y < height) {
+                            int nindex = y * width + x;
+
+                            if (0 > nlabels[nindex] &&
+                                labels[oindex] == labels[nindex]) {
+                                xvec[count] = x;
+                                yvec[count] = y;
+                                nlabels[nindex] = label;
+                                count++;
+                            }
+                        }
+                    }
+                }
+                //-------------------------------------------------------
+                // If segment size is less then a limit, assign an
+                // adjacent label found before, and decrement label count.
+                //-------------------------------------------------------
+                if (count <= SUPSZ >> 2) {
+                    for (int c = 0; c < count; c++) {
+                        int ind = yvec[c] * width + xvec[c];
+                        nlabels[ind] = adjlabel;
+                    }
+                    label--;
+                }
+                label++;
+            }
+            oindex++;
+        }
+        // unroll for k=width-1
+        {
+            if (0 > nlabels[oindex]) {
+                nlabels[oindex] = label;
+                //--------------------
+                // Start a new segment
+                //--------------------
+                xvec[0] = width-1;
+                yvec[0] = height-1;
+                //-------------------------------------------------------
+                // Quickly find an adjacent label for use later if needed
+                //-------------------------------------------------------
+                {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[0] + dx4[n];
+                        int y = yvec[0] + dy4[n];
+                        if ((x < width) && (y < height)) {
+                            int nindex = y * width + x;
+                            if (nlabels[nindex] >= 0)
+                                adjlabel = nlabels[nindex];
+                        }
+                    }
+                }
+
+                int count(1);
+                for (int c = 0; c < count; c++) {
+                    // #pragma unroll
+                    for (int n = 0; n < 4; n++) {
+                        int x = xvec[c] + dx4[n];
+                        int y = yvec[c] + dy4[n];
+
+                        if ((x < width) && (y < height)) {
+                            int nindex = y * width + x;
+
+                            if (0 > nlabels[nindex] &&
+                                labels[oindex] == labels[nindex]) {
+                                xvec[count] = x;
+                                yvec[count] = y;
+                                nlabels[nindex] = label;
+                                count++;
+                            }
+                        }
+                    }
+                }
+                //-------------------------------------------------------
+                // If segment size is less then a limit, assign an
+                // adjacent label found before, and decrement label count.
+                //-------------------------------------------------------
+                if (count <= SUPSZ >> 2) {
+                    for (int c = 0; c < count; c++) {
+                        int ind = yvec[c] * width + xvec[c];
+                        nlabels[ind] = adjlabel;
+                    }
+                    label--;
+                }
+                label++;
+            }
+            oindex++;
+        }
     }
 
     numlabels = label;
