@@ -26,6 +26,8 @@
 #include <mpi.h>
 #include <omp.h>
 #include <immintrin.h>
+#include <smmintrin.h>
+#include <emmintrin.h>
 
 #include <cfloat>
 #include <chrono>
@@ -522,13 +524,27 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
                         
                         __m256d distvec_vec = _mm256_load_pd(&distvec[i]);
                         __m256d cmp_res_vec = _mm256_cmp_pd(dist_vec, distvec_vec, _CMP_LT_OQ);
+                        //int move_mask = _mm256_movemask_pd(cmp_res_vec);
+                        //distvec_vec = _mm256_blend_pd(distvec_vec, dist_vec, move_mask);
                         distvec_vec = _mm256_blendv_pd(distvec_vec, dist_vec, cmp_res_vec);
                         _mm256_store_pd(&distvec[i], distvec_vec);
-                        _mm256_store_pd(res_unpack, cmp_res_vec);
-                        klabels[i]=res_unpack[0]==0?klabels[i]:n;
-                        klabels[i+1]=res_unpack[1]==0?klabels[i+1]:n;
-                        klabels[i+2]=res_unpack[2]==0?klabels[i+2]:n;
-                        klabels[i+3]=res_unpack[3]==0?klabels[i+3]:n;
+
+                        __m256 cmp_ps_vec = _mm256_castpd_ps(cmp_res_vec);
+                        __m128 cmp_lo_vec = _mm256_extractf128_ps(cmp_ps_vec, 0);
+                        __m128 cmp_hi_vec = _mm256_extractf128_ps(cmp_ps_vec, 1);
+                        __m128i cmp_int_vec = _mm_castps_si128(_mm_shuffle_ps(cmp_lo_vec, cmp_hi_vec, 1 + (3<<2) + (1<<4) + (3<<6)));
+
+                        __m128i n_vec = _mm_set1_epi32(n);
+                        _mm_maskstore_epi32(&klabels[i], cmp_int_vec, n_vec);
+                        //__m128i klabels_vec = _mm_load_si128((__m128i*)&klabels[i]);
+                        // klabels_vec = _mm_blend_epi32(klabels_vec, n_vec, move_mask);
+                        //_mm_store_si128((__m128i*)&klabels[i], klabels_vec);
+                        //__m128i cmp_int_vec = _mm256_cvtpd_epi32(cmp_res_vec);
+                        // _mm256_store_pd(res_unpack, cmp_res_vec);
+                        // klabels[i]=res_unpack[0]==0?klabels[i]:n;
+                        // klabels[i+1]=res_unpack[1]==0?klabels[i+1]:n;
+                        // klabels[i+2]=res_unpack[2]==0?klabels[i+2]:n;
+                        // klabels[i+3]=res_unpack[3]==0?klabels[i+3]:n;
                         x+=4;
                     }
                 }
