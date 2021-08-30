@@ -860,17 +860,22 @@ void SLIC::EnforceLabelConnectivity(
     int label(0);
     int* xvec = new int[sz];
     int* yvec = new int[sz];
+//     omp_lock_t* lock_table = new omp_lock_t[sz];
+// #pragma omp parallel for
+//     for(int i=0; i<sz; ++i)
+//         omp_init_lock(lock_table+i);
     int oindex(0);
     int adjlabel(0);  // adjacent label
-    for (int j = 0; j < height; j++) {
-        for (int k = 0; k < width; k++) {
+    // for (int j = 0; j < height; j++) {
+    //     for (int k = 0; k < width; k++) {
+        for (int i=0; i<sz; ++i) {
             if (0 > nlabels[oindex]) {
                 nlabels[oindex] = label;
                 //--------------------
                 // Start a new segment
                 //--------------------
-                xvec[0] = k;
-                yvec[0] = j;
+                xvec[0] = i%width;
+                yvec[0] = i/width;
                 //-------------------------------------------------------
                 // Quickly find an adjacent label for use later if needed
                 //-------------------------------------------------------
@@ -905,11 +910,18 @@ void SLIC::EnforceLabelConnectivity(
                         }
                     }
                 }
+                // int count(1);
+                // try to implement parallel bfs
+                {
+
+                }
+
                 //-------------------------------------------------------
                 // If segment size is less then a limit, assign an
                 // adjacent label found before, and decrement label count.
                 //-------------------------------------------------------
                 if (count <= SUPSZ >> 2) {
+                    // #pragma omp parallel for
                     for (int c = 0; c < count; c++) {
                         int ind = yvec[c] * width + xvec[c];
                         nlabels[ind] = adjlabel;
@@ -920,7 +932,8 @@ void SLIC::EnforceLabelConnectivity(
             }
             oindex++;
         }
-    }
+    //    }
+    // }
     numlabels = label;
 
     if (xvec) delete[] xvec;
