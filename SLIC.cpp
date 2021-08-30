@@ -139,17 +139,18 @@ void SLIC::RGB2LAB(const int& sR, const int& sG, const int& sB, double& lval,
         // fx = pow(xr, 1.0 / 3.0);
         fx = cbrt(xr);
     else
-        fx = (kappa * xr + 16.0) / 116.0;
+        // fx = (kappa * xr + 16.0) / 116.0;
+        fx = (kappa / 116.0) * xr + 16.0 / 116.0;
     if (yr > epsilon)
         // fy = pow(yr, 1.0 / 3.0);
         fy = cbrt(yr);
     else
-        fy = (kappa * yr + 16.0) / 116.0;
+        fy = (kappa / 116.0) * yr + 16.0 / 116.0;
     if (zr > epsilon)
         // fz = pow(zr, 1.0 / 3.0);
         fz = cbrt(zr);
     else
-        fz = (kappa * zr + 16.0) / 116.0;
+        fz = (kappa / 116.0) * zr + 16.0 / 116.0;
 
     lval = 116.0 * fy - 16.0;
     aval = 500.0 * (fx - fy);
