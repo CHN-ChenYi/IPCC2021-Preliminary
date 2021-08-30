@@ -353,9 +353,9 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
     vector<double> sigmay(numk, 0);
     vector<int> clustersize(numk, 0);
     vector<double> inv(numk, 0);  // to store 1/clustersize[k] values
-    //vector<double> distxy(sz, DBL_MAX);
-    //vector<double> distlab(sz, DBL_MAX);
-    double *distxy = (double*)_mm_malloc(sz*sizeof(double),256);
+    // vector<double> distxy(sz, DBL_MAX);
+    // vector<double> distlab(sz, DBL_MAX);
+    // double *distxy = (double*)_mm_malloc(sz*sizeof(double),256);
     // not double max but large enough
     //memset(distxy,0x7F,sz*sizeof(double));
     double *distlab = (double*)_mm_malloc(sz*sizeof(double),256);
@@ -363,7 +363,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
     //vector<double> distvec(sz, DBL_MAX);
     #pragma omp parallel for
         for (int i = 0; i < sz; ++i) {
-            distxy[i] = DBL_MAX;
+            // distxy[i] = DBL_MAX;
             distlab[i] = DBL_MAX;
         }
     double *distvec = (double*)_mm_malloc(sz*sizeof(double),256);
@@ -371,9 +371,9 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
     //memset(distvec,0x7F,sz*sizeof(double));
     vector<double> maxlab(
         numk, 10 * 10);  // THIS IS THE VARIABLE VALUE OF M, just start with 10
-    vector<double> maxxy(
-        numk,
-        STEP * STEP);  // THIS IS THE VARIABLE VALUE OF M, just start with 10
+    // vector<double> maxxy(
+    //     numk,
+    //     STEP * STEP);  // THIS IS THE VARIABLE VALUE OF M, just start with 10
 
     double invxywt =
         1.0 /
@@ -384,7 +384,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
     // vector<int> distidx(sz, -1);
     int* distidx = new int[sz];
     double* _maxlab[OMP_NUM_THREADS];
-    double* _maxxy[OMP_NUM_THREADS];
+    // double* _maxxy[OMP_NUM_THREADS];
     double* _sigmal[OMP_NUM_THREADS];
     double* _sigmaa[OMP_NUM_THREADS];
     double* _sigmab[OMP_NUM_THREADS];
@@ -396,7 +396,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 #pragma omp parallel for
     for (int i = 0; i < OMP_NUM_THREADS; ++i) {
         _maxlab[i] = new double[numk];
-        _maxxy[i] = new double[numk];
+        // _maxxy[i] = new double[numk];
         _sigmal[i] = new double[numk];
         _sigmaa[i] = new double[numk];
         _sigmab[i] = new double[numk];
@@ -484,7 +484,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
                         //------------------------------------------------------------------------
 
                         distlab[i] = _distlab;
-                        distxy[i] = _distxy;
+                        // distxy[i] = _distxy;
 
                         if (dist < distvec[i]) {
                             distvec[i] = dist;
@@ -518,7 +518,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
                         __m256d dist_vec = _mm256_add_pd(dist_vec_t1, dist_vec_t2);
 
                         _mm256_store_pd(&distlab[i], _distlab_vec);
-                        _mm256_store_pd(&distxy[i], _distxy_vec);
+                        // _mm256_store_pd(&distxy[i], _distxy_vec);
                         
                         __m256d distvec_vec = _mm256_load_pd(&distvec[i]);
                         __m256d cmp_res_vec = _mm256_cmp_pd(dist_vec, distvec_vec, _CMP_LT_OQ);
@@ -557,7 +557,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 #pragma omp parallel for
         for (int i = 0; i < OMP_NUM_THREADS; ++i) {
             memset(_maxlab[i], 0, sizeof(double) * numk);
-            memset(_maxxy[i], 0, sizeof(double) * numk);
+            // memset(_maxxy[i], 0, sizeof(double) * numk);
         }
 #pragma omp parallel for
 #ifndef MYMPI
@@ -568,15 +568,15 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
             int idx = omp_get_thread_num();
             if (_maxlab[idx][klabels[i]] < distlab[i])
                 _maxlab[idx][klabels[i]] = distlab[i];
-            if (_maxxy[idx][klabels[i]] < distxy[i])
-                _maxxy[idx][klabels[i]] = distxy[i];
+            // if (_maxxy[idx][klabels[i]] < distxy[i])
+            //     _maxxy[idx][klabels[i]] = distxy[i];
         }
 #pragma omp parallel for
         for (int i = 0; i < numk; ++i)
             for (int j = 0; j < OMP_NUM_THREADS; ++j) {
                 if (maxlab[i] < _maxlab[j][i]) maxlab[i] = _maxlab[j][i];
-                if (maxxy[i] < _maxxy[j][i])
-                    maxxy[i] = _maxxy[j][i];  // TODO: useless????
+                // if (maxxy[i] < _maxxy[j][i])
+                //     maxxy[i] = _maxxy[j][i];
             }
 
 #ifdef MYMPI
@@ -585,8 +585,8 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 #endif
         MPI_Allreduce(MPI_IN_PLACE, maxlab.data(), numk, MPI_DOUBLE, MPI_MAX,
                       MPI_COMM_WORLD);
-        MPI_Allreduce(MPI_IN_PLACE, maxxy.data(), numk, MPI_DOUBLE, MPI_MAX,
-                      MPI_COMM_WORLD);
+        // MPI_Allreduce(MPI_IN_PLACE, maxxy.data(), numk, MPI_DOUBLE, MPI_MAX,
+        //               MPI_COMM_WORLD);
 #ifdef PROF
         mpi_end_time = Clock::now();
         mpi_comp_time = chrono::duration_cast<chrono::microseconds>(
@@ -752,7 +752,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
 #pragma omp parallel for
     for (int i = 0; i < OMP_NUM_THREADS; ++i) {
         delete[] _maxlab[i];
-        delete[] _maxxy[i];
+        // delete[] _maxxy[i];
         delete[] _sigmal[i];
         delete[] _sigmaa[i];
         delete[] _sigmab[i];
@@ -762,7 +762,7 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
     }
 
     _mm_free(distlab);
-    _mm_free(distxy);
+    // _mm_free(distxy);
     _mm_free(distvec);
     //_mm_free(res_unpack);
 
@@ -1194,16 +1194,20 @@ int main(int argc, char** argv) {
     double m_compactness;
     // m_spcount = 200;
     m_compactness = 10.0;
+
+#ifdef MYMPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif
     auto startTime = Clock::now();
 
     slic.PerformSLICO_ForGivenK(
         img, width, height, labels, numlabels, m_spcount,
         m_compactness);  // for a given number K of superpixels
 
+    auto endTime = Clock::now();
 #ifdef MYMPI
     if (!world_rank) {
 #endif
-        auto endTime = Clock::now();
         auto compTime =
             chrono::duration_cast<chrono::microseconds>(endTime - startTime);
         cout << "Computing time=" << compTime.count() / 1000 << " ms" << endl;
