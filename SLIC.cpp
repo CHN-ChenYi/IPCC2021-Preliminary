@@ -1011,7 +1011,8 @@ void SLIC::PerformSLICO_ForGivenK(
     _mm_free(kseedsx);
     _mm_free(kseedsy);
 
-    int* nlabels = new int[sz];
+    // int* nlabels = new int[sz];
+    int* nlabels = (int *)_mm_malloc(sz*sizeof(int),256);
 #ifdef PROF
     startTime = Clock::now();
 #endif
@@ -1027,7 +1028,7 @@ void SLIC::PerformSLICO_ForGivenK(
          << ":EnforceLabelConnectivity time=" << compTime.count() / 1000
          << " ms" << endl;
 #endif
-    if (nlabels) delete[] nlabels;
+    if (nlabels) _mm_free(nlabels);
 }
 
 //===========================================================================
@@ -1185,7 +1186,8 @@ int main(int argc, char** argv) {
     if (width == 0 || height == 0) return -1;
 
     int sz = width * height;
-    int* labels = new int[sz];
+    // int* labels = new int[sz];
+    int* labels = (int*)_mm_malloc(sz*sizeof(int),256);
     int numlabels(0);
     SLIC slic;
     // int m_spcount;
@@ -1231,7 +1233,7 @@ int main(int argc, char** argv) {
     }
 #endif
 
-    if (labels) delete[] labels;
+    if (labels) _mm_free(labels);
     if (img) delete[] img;
 
 #ifdef MYMPI
