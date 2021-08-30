@@ -3,23 +3,38 @@ CCFLAGS = -std=c++11 -O3 -fopenmp -march=znver2
 SOURCE = SLIC.cpp SLIC.h
 CASE = 2
 
-main : $(SOURCE)
-	$(CC) $(CCFLAGS) -o SLIC $<
+main : default
 
-prof : $(SOURCE)
-	$(CC) $(CCFLAGS) -DSLCT -DPROF -o SLIC $<
 
-mpi : $(SOURCE)
-	$(CC) $(CCFLAGS) -DSLCT -DMYMPI -o SLIC $<
+default : $(SOURCE)
+	$(CC) $(CCFLAGS) -fprofile-use=SLIC.profile -DMYMPI -o SLIC $<
 
-mpi-prof : $(SOURCE)
-	$(CC) $(CCFLAGS) -DSLCT -DMYMPI -DPROF -o SLIC $<
+gen : $(SOURCE)
+	rm -rf SLIC.profile
+	$(CC) $(CCFLAGS) -fprofile-generate=SLIC.profile -DMYMPI -o SLIC $<
+	sbatch script.slurm
+	squeue
+
 
 slct : $(SOURCE)
-	$(CC) $(CCFLAGS) -DSLCT -o SLIC $<
+	$(CC) $(CCFLAGS) -fprofile-use=SLIC.profile -DSLCT -DMYMPI -o SLIC $<
 
-gprof : $(SOURCE)
-	$(CC) $(CCFLAGS) -pg -o SLIC $<
+slct-gen : $(SOURCE)
+	rm -rf SLIC.profile
+	$(CC) $(CCFLAGS) -fprofile-generate=SLIC.profile -DSLCT -DMYMPI -o SLIC $<
+	sbatch script.slurm
+	squeue
+
+
+prof : $(SOURCE)
+	$(CC) $(CCFLAGS) -fprofile-use=SLIC.profile -DSLCT -DMYMPI -DPROF -o SLIC $<
+
+prof-gen : $(SOURCE)
+	rm -rf SLIC.profile
+	$(CC) $(CCFLAGS) -fprofile-generate=SLIC.profile -DSLCT -DMYMPI -DPROF -o SLIC $<
+	sbatch script.slurm
+	squeue
+
 
 run :
 	sbatch script.slurm $(CASE)
