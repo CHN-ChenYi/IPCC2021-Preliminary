@@ -14,6 +14,7 @@ gen : $(SOURCE)
 	$(CC) $(CCFLAGS) -fprofile-generate=SLIC.profile -DMYMPI -o SLIC $<
 	sbatch script.slurm
 	squeue
+	@echo -e "\e[1;31mGenerating profile, please execute 'make' after the job is done...\e[0m"
 
 
 slct : $(SOURCE)
@@ -22,7 +23,7 @@ slct : $(SOURCE)
 slct-gen : $(SOURCE)
 	rm -rf SLIC.profile
 	$(CC) $(CCFLAGS) -fprofile-generate=SLIC.profile -DSLCT -DMYMPI -o SLIC $<
-	sbatch script.slurm
+	sbatch script.slurm $(CASE)
 	squeue
 
 
@@ -32,7 +33,7 @@ prof : $(SOURCE)
 prof-gen : $(SOURCE)
 	rm -rf SLIC.profile
 	$(CC) $(CCFLAGS) -fprofile-generate=SLIC.profile -DSLCT -DMYMPI -DPROF -o SLIC $<
-	sbatch script.slurm
+	sbatch script.slurm $(CASE)
 	squeue
 
 
