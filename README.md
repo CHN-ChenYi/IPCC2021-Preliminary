@@ -2,6 +2,12 @@
 
 Only supports MPI when world_size is 2. If not, turn off MYMPI flag to use the single node version.
 
+## Prerequisites
+
+```
+source ./setenv.sh
+```
+
 ## Compile
 
 ### Default version
