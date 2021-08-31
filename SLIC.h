@@ -151,7 +151,7 @@ private:
 	// Post-processing of SLIC segmentation, to avoid stray labels.
 	//============================================================================
 	void EnforceLabelConnectivity(
-		const int*					labels,
+		int*						labels,
 		const int&					width,
 		const int&					height,
 		int*						nlabels,//input labels that need to be corrected to remove stray labels
