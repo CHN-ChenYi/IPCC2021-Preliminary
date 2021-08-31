@@ -1,5 +1,5 @@
 CC = mpicxx
-CCFLAGS = -std=c++11 -O3 -fopenmp -march=znver2
+CCFLAGS = -std=c++11 -O3 -fopenmp -march=znver2 -std=c++17
 SOURCE = SLIC.cpp SLIC.h
 CASE = 2
 
@@ -7,36 +7,13 @@ main : default
 
 
 default : $(SOURCE)
-	$(CC) $(CCFLAGS) -fprofile-use=SLIC.profile -DMYMPI -o SLIC $<
-
-gen : $(SOURCE)
-	rm -rf SLIC.profile
-	$(CC) $(CCFLAGS) -fprofile-generate=SLIC.profile -DMYMPI -o SLIC $<
-	sbatch script.slurm
-	squeue
-	@echo -e "\e[1;31mGenerating profile, please execute 'make' after the job is done...\e[0m"
-
+	$(CC) $(CCFLAGS) -DMYMPI -o SLIC $<
 
 slct : $(SOURCE)
-	$(CC) $(CCFLAGS) -fprofile-use=SLIC.profile -DSLCT -DMYMPI -o SLIC $<
-
-slct-gen : $(SOURCE)
-	rm -rf SLIC.profile
-	$(CC) $(CCFLAGS) -fprofile-generate=SLIC.profile -DSLCT -DMYMPI -o SLIC $<
-	sbatch script.slurm $(CASE)
-	squeue
-	@echo -e "\e[1;31mGenerating profile, please execute 'make' after the job is done...\e[0m"
-
+	$(CC) $(CCFLAGS) -DSLCT -DMYMPI -o SLIC $<
 
 prof : $(SOURCE)
-	$(CC) $(CCFLAGS) -fprofile-use=SLIC.profile -DSLCT -DMYMPI -DPROF -o SLIC $<
-
-prof-gen : $(SOURCE)
-	rm -rf SLIC.profile
-	$(CC) $(CCFLAGS) -fprofile-generate=SLIC.profile -DSLCT -DMYMPI -DPROF -o SLIC $<
-	sbatch script.slurm $(CASE)
-	squeue
-
+	$(CC) $(CCFLAGS) -DSLCT -DMYMPI -DPROF -o SLIC $<
 
 run :
 	sbatch script.slurm $(CASE)
