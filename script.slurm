@@ -5,5 +5,6 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=64
 
+source ./setenv.sh
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 mpirun --bind-to none ./SLIC $1
