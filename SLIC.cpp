@@ -291,12 +291,6 @@ void SLIC::GetLABXYSeeds_ForGivenK(double* kseedsl, double* kseedsa,
             kseedsx[numk] = X;
             kseedsy[numk] = Y;
             ++numk;
-            // kseedsl.push_back(m_lvec[i]);
-            // kseedsa.push_back(m_avec[i]);
-            // kseedsb.push_back(m_bvec[i]);
-            // kseedsx.push_back(X);
-            // kseedsy.push_back(Y);
-            // n++;
         }
         r++;
     }
@@ -359,13 +353,10 @@ void SLIC::PerformSuperpixelSegmentation_VariableSandM(
     vector<int> clustersize(numk, 0);
     vector<double> inv(numk, 0);  // to store 1/clustersize[k] values
     // vector<double> distxy(sz, DBL_MAX);
-    // vector<double> distlab(sz, DBL_MAX);
     // double *distxy = (double*)_mm_malloc(sz*sizeof(double),256);
     // not double max but large enough
     // memset(distxy,0x7F,sz*sizeof(double));
     double* distlab = (double*)_mm_malloc(sz * sizeof(double), 256);
-// memset(distlab,0x7F,sz*sizeof(double));
-// vector<double> distvec(sz, DBL_MAX);
 #pragma omp parallel for
     for (int i = 0; i < sz; ++i) {
         // distxy[i] = DBL_MAX;
@@ -867,20 +858,12 @@ void SLIC::EnforceLabelConnectivity(
 
     const int sz = width * height;
     const int SUPSZ = sz / K;
-    // nlabels.resize(sz, -1);
     memset(nlabels, -1, sizeof(int) * sz);
-    // for( int i = 0; i < sz; i++ ) nlabels[i] = -1;
     int label(0);
     int* xvec = new int[sz];
     int* yvec = new int[sz];
-    //     omp_lock_t* lock_table = new omp_lock_t[sz];
-    // #pragma omp parallel for
-    //     for(int i=0; i<sz; ++i)
-    //         omp_init_lock(lock_table+i);
     int oindex(0);
     int adjlabel(0);  // adjacent label
-                      // for (int j = 0; j < height; j++) {
-                      //     for (int k = 0; k < width; k++) {
     for (int i = 0; i < sz; ++i) {
         if (0 > nlabels[oindex]) {
             nlabels[oindex] = label;
@@ -922,9 +905,6 @@ void SLIC::EnforceLabelConnectivity(
                     }
                 }
             }
-            // int count(1);
-            // try to implement parallel bfs
-            {}
 
             //-------------------------------------------------------
             // If segment size is less then a limit, assign an
@@ -942,8 +922,6 @@ void SLIC::EnforceLabelConnectivity(
         }
         oindex++;
     }
-    //    }
-    // }
     numlabels = label;
 
     if (xvec) delete[] xvec;
@@ -961,12 +939,6 @@ void SLIC::PerformSLICO_ForGivenK(
     const int& K,     // required number of superpixels
     const double& m)  // weight given to spatial distance
 {
-    // vector<double> kseedsl(0);
-    // vector<double> kseedsa(0);
-    // vector<double> kseedsb(0);
-    // vector<double> kseedsx(0);
-    // vector<double> kseedsy(0);
-
     double *kseedsl, *kseedsa, *kseedsb, *kseedsx, *kseedsy;
 
     //--------------------------------------------------
